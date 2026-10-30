@@ -1,10 +1,10 @@
 import textwrap
 
 from PySide6.QtGui import Qt
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QPushButton, QTabWidget, QTextBrowser
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QPushButton, QTabWidget, QTextBrowser, QLabel
 
 from backend.formats_backend import retrieve_movies_format_from_formats_file, save_new_movies_format_to_formats_file, \
-    retrieve_series_format_from_formats_file, save_new_series_format_to_formats_file
+    retrieve_series_format_from_formats_file, save_new_series_format_to_formats_file, preview_format
 
 
 class FormatsPage(QWidget):
@@ -31,8 +31,13 @@ class FormatsPage(QWidget):
 
         # Update button for movies format.
         movie_update_button = QPushButton("Update")
-        movie_update_button.clicked.connect(lambda: save_new_movies_format_to_formats_file(movie_line_edit.text()))
+        movie_feedback = QLabel()
+        movie_feedback.setWordWrap(True)
+        movie_feedback.setTextFormat(Qt.TextFormat.PlainText)
+        movie_feedback.setObjectName("movieFormatFeedback")
+        movie_update_button.clicked.connect(lambda: self.save_format(movie_line_edit.text(), False, movie_feedback))
         movie_tab_layout.addWidget(movie_update_button)
+        movie_tab_layout.addWidget(movie_feedback)
 
         # Movie format tutorial and examples.
         movie_syntax = QTextBrowser()
@@ -57,9 +62,13 @@ class FormatsPage(QWidget):
 
         # Update button for series format.
         series_update_button = QPushButton("Update")
-        series_update_button.clicked.connect(lambda:
-                                             save_new_series_format_to_formats_file(series_line_edit.text()))
+        series_feedback = QLabel()
+        series_feedback.setWordWrap(True)
+        series_feedback.setTextFormat(Qt.TextFormat.PlainText)
+        series_feedback.setObjectName("seriesFormatFeedback")
+        series_update_button.clicked.connect(lambda: self.save_format(series_line_edit.text(), True, series_feedback))
         episode_tab_layout.addWidget(series_update_button)
+        episode_tab_layout.addWidget(series_feedback)
 
         # Episode format tutorial and examples.
         episode_syntax = QTextBrowser()
@@ -79,3 +88,15 @@ class FormatsPage(QWidget):
 
         tab_bar.addTab(movie_tab, "Movies")
         tab_bar.addTab(episode_tab, "TV Episodes")
+
+
+    @staticmethod
+    def save_format(template: str, is_series: bool, feedback: QLabel):
+        try:
+            example = preview_format(template, is_series)
+            save = save_new_series_format_to_formats_file if is_series else save_new_movies_format_to_formats_file
+            save(template)
+        except (ValueError, OSError) as error:
+            feedback.setText(str(error))
+            return
+        feedback.setText(f"Saved. Example: {example}")

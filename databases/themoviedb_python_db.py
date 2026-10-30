@@ -18,16 +18,16 @@ class TheMovieDBPythonDB(Database):
 
         # Timeout for connect & request after 5 seconds.
         tmdb.REQUESTS_TIMEOUT = 5
+        self._search_results = {}
 
     def retrieve_media_titles_from_db(self) -> list[str | None]:
-        if tmdb.API_KEY is None:
-            tmdb.API_KEY = retrieve_the_movie_db_key()
+        tmdb.API_KEY = retrieve_the_movie_db_key()
 
         matched_titles: list[str | None] = []
 
         if self.is_tv_series:
             # MediaRecord Episode Match.
-            possible_listings: dict = tmdb.Search().tv(query=self.media_records[0].title).get("results", "")
+            possible_listings = self._search("tv", self.media_records[0].title)
 
             if len(possible_listings) == 0:
                 return [None] * len(self.media_records)
@@ -48,7 +48,7 @@ class TheMovieDBPythonDB(Database):
         else:
             # MediaRecord Movie Match.
             for media_record in self.media_records:
-                possible_listings: dict = tmdb.Search().movie(query=media_record.title).get("results", "")
+                possible_listings = self._search("movie", media_record.title)
                 target_year: int | None = media_record.year
 
                 if len(possible_listings) == 0:
@@ -66,8 +66,7 @@ class TheMovieDBPythonDB(Database):
         return matched_titles
 
     def retrieve_media_years_from_db(self) -> list[int | None]:
-        if tmdb.API_KEY is None:
-            tmdb.API_KEY = retrieve_the_movie_db_key()
+        tmdb.API_KEY = retrieve_the_movie_db_key()
 
         # Return the 'series' release year.
         if self.is_tv_series:
@@ -75,14 +74,12 @@ class TheMovieDBPythonDB(Database):
             if self.media_records[0].year is not None:
                 return [self.media_records[0].year] * len(self.media_records)
 
-            possible_listings: dict = tmdb.Search().tv(query=self.media_records[0].title).get("results", "")
+            possible_listings = self._search("tv", self.media_records[0].title)
             if len(possible_listings) == 0:
                 return [None] * len(self.media_records)
 
             # In this branch case, the user does not know the year of the series. Just select the first listing.
-            listing_date = list(possible_listings)[0].get("first_air_date", None)
-
-            return [int(listing_date[:4]) if listing_date is not None else None] * len(self.media_records)
+            return [_get_release_year_of_listing(possible_listings[0], "first_air_date")] * len(self.media_records)
 
         # Return the 'movie' release year of each MediaRecord.
         release_years: list[int | None] = []
@@ -93,14 +90,23 @@ class TheMovieDBPythonDB(Database):
                 release_years.append(media_record.year)
                 continue
 
-            possible_listings: dict = tmdb.Search().movie(query=media_record.title).get("results", "")
+            possible_listings = self._search("movie", media_record.title)
 
-            # In this branch case, the user does not know the year of the series. Just select the first listing.
-            listing_date = list(possible_listings)[0].get("release_date", None)
+            if not possible_listings:
+                release_years.append(None)
+                continue
+            listing_date = possible_listings[0].get("release_date")
 
             release_years.append(int(listing_date[:4]) if listing_date and listing_date[:4].isdigit() else None)
 
         return release_years
+
+    def _search(self, media_type: str, title: str) -> list[dict]:
+        """Reuse searches for title and year within this matching operation."""
+        key = (media_type, title)
+        if key not in self._search_results:
+            self._search_results[key] = getattr(tmdb.Search(), media_type)(query=title).get("results") or []
+        return self._search_results[key]
 
 
 def _find_best_listing_near_year(possible_listings: dict, target_year: int, identifier_for_year: str) -> dict:

@@ -19,6 +19,7 @@ class OMDBPythonDB(Database):
 
         # Lazy build it since the API key might not be set.
         self.omdb_client: OMDBClient | None = None
+        self._responses = {}
 
     def retrieve_media_titles_from_db(self) -> list[str | None]:
         if self.omdb_client is None:
@@ -38,7 +39,7 @@ class OMDBPythonDB(Database):
         else:
             # MediaRecord Movie Match.
             for media_record in self.media_records:
-                matched_movie = self.omdb_client.get(title=media_record.title, year=media_record.year)
+                matched_movie = self._get(title=media_record.title, year=media_record.year)
                 matched_titles.append(matched_movie.get("title"))
 
         return matched_titles
@@ -53,7 +54,7 @@ class OMDBPythonDB(Database):
             if self.media_records[0].year is not None:
                 return [self.media_records[0].year] * len(self.media_records)
 
-            series_info = self.omdb_client.get(title=self.media_records[0].title)
+            series_info = self._get(title=self.media_records[0].title)
 
             year_range = series_info.get("year")
 
@@ -72,10 +73,16 @@ class OMDBPythonDB(Database):
                 release_years.append(media_record.year)
                 continue
 
-            movie_info = self.omdb_client.get(title=media_record.title)
+            movie_info = self._get(title=media_record.title, year=media_record.year)
             release_years.append(movie_info.get("year"))
 
         return release_years
+
+    def _get(self, **kwargs) -> dict:
+        key = tuple(sorted(kwargs.items()))
+        if key not in self._responses:
+            self._responses[key] = self.omdb_client.get(**kwargs)
+        return self._responses[key]
 
     def _create_episode_lookup(self, title: str, year: int | None, season_numbers: set[int], is_absolute_order: bool) \
             -> dict[(int, int), str]:
@@ -89,11 +96,11 @@ class OMDBPythonDB(Database):
         if is_absolute_order:
             # OMDB does not have a convenient way to retrieve the absolute order for a series.
             # We will query all episodes and create our own absolute order.
-            number_of_total_seasons = int(self.omdb_client.get(title=title, year=year).get("total_seasons", 1))
+            number_of_total_seasons = int(self._get(title=title, year=year).get("total_seasons", 1))
             current_episode_counter = 1
 
             for season_number in range(1, number_of_total_seasons + 1):
-                query = self.omdb_client.get(title=title, year=year, season=season_number)
+                query = self._get(title=title, year=year, season=season_number)
                 episode_info_list = query.get("episodes")
 
                 if episode_info_list is None:
@@ -105,7 +112,7 @@ class OMDBPythonDB(Database):
         else:
             # OMDB requires you to look up episodes one season at a time.
             for season_number in season_numbers:
-                query = self.omdb_client.get(title=title, year=year, season=season_number)
+                query = self._get(title=title, year=year, season=season_number)
                 episode_info_list = query.get("episodes")
 
                 if episode_info_list is None:

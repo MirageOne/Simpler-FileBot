@@ -1,0 +1,77 @@
+name: Windows packages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.py'
+      - 'styles/**'
+      - 'resources/**'
+      - 'main.spec'
+      - 'requirements*.txt'
+      - 'scripts/build-windows.ps1'
+      - 'packaging/windows/**'
+      - '.github/workflows/windows-packages.yml'
+  pull_request:
+    paths:
+      - '**/*.py'
+      - 'styles/**'
+      - 'resources/**'
+      - 'main.spec'
+      - 'requirements*.txt'
+      - 'scripts/build-windows.ps1'
+      - 'packaging/windows/**'
+      - '.github/workflows/windows-packages.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Install build dependencies
+        run: python -m pip install -r requirements.txt -r requirements-build.txt
+      - name: Ensure Inno Setup is available
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe") -and
+              -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 7\ISCC.exe") -and
+              -not (Get-Command ISCC.exe -ErrorAction SilentlyContinue)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed.' }
+          }
+      - name: Build portable ZIP and installer
+        shell: pwsh
+        run: ./scripts/build-windows.ps1 -Target All
+      - name: Smoke-test installed application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Installer = Get-ChildItem dist/windows/packages/*-setup-x64.exe | Select-Object -First 1
+          $Destination = Join-Path $env:RUNNER_TEMP 'filebot-installed'
+          $Install = Start-Process $Installer.FullName -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=$Destination") -Wait -PassThru
+          if ($Install.ExitCode -ne 0) { throw "Installation failed: $($Install.ExitCode)" }
+          if (Test-Path (Join-Path $Destination 'portable.flag')) { throw 'Installer unexpectedly enabled portable mode.' }
+          $env:CI = 'true'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          $App = Start-Process (Join-Path $Destination 'Simpler-FileBot.exe') -WorkingDirectory $Destination -PassThru
+          if (-not $App.WaitForExit(60000)) {
+            $App.Kill()
+            throw 'Installed application startup timed out.'
+          }
+          if ($App.ExitCode -ne 0) { throw "Installed application failed: $($App.ExitCode)" }
+          $Uninstall = Start-Process (Join-Path $Destination 'unins000.exe') -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          if ($Uninstall.ExitCode -ne 0) { throw "Uninstall failed: $($Uninstall.ExitCode)" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Simpler-FileBot-windows-x64
+          path: dist/windows/packages/*
+          if-no-files-found: error

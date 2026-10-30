@@ -1,24 +1,14 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
-
+from PySide6.QtWidgets import QWidget, QVBoxLayout
 from pages.core.core_renamer_widget import CoreRenamerWidget
-from pages.core.core_toolbar import CoreToolBar
 
 
-class MainPage(QMainWindow):
-    """Main container that hosts the renaming widget and toolbar widget."""
-    renamer_widget: CoreRenamerWidget
-
+class MainPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         self.renamer_widget = CoreRenamerWidget()
-        toolbar_widget = CoreToolBar(self.renamer_widget.left_box, self.renamer_widget.right_box)
+        layout.addWidget(self.renamer_widget)
 
-        # Combine all CorePage components into one QWidget().
-        central_widget = QWidget()
-        central_widget_layout = QVBoxLayout(central_widget)
-        central_widget_layout.addWidget(self.renamer_widget)
-        central_widget_layout.addWidget(toolbar_widget)
-        self.setCentralWidget(central_widget)
-
-    def add_files(self, user_input_files: list[str]):
-        self.renamer_widget.hack_add_files(user_input_files)
+    def add_files(self, paths):
+        self.renamer_widget.add_files(paths)

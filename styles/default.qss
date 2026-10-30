@@ -1,64 +1,57 @@
-/* App menu items, e.g., Rename, Formats, etc. */
-QListWidget#menu {
-    font-size: 18pt;
-}
-
-QListWidget#menu::item {
-    margin: 1em;
-}
-
-#core QListWidget {
-    /* Set the min height of the input/output box to roughly 20 lines of file names ('em' solely counts text size). */
-    min-height: 20em;
-}
-
-#core QListWidget::item {
-    margin: 0.6em;
-}
-
-#core QPushButton {
-    font-size: 12pt;
-    min-height: 2em;
-}
-
-#core QLabel {
-    font-size: 15pt;
-    margin-bottom: 0.25em;
-}
-
-QPushButton#dbBtn {
-    qproperty-iconSize: 40px 30px;
-    padding-left: 0.4em;
-}
-
-#formats QTextBrowser {
-    font-size: 12pt;
-}
-
-#formats QLineEdit {
-    padding: 0.5em;
-    font-size: 12pt;
-}
-
-#formats QPushButton {
-    padding: 0.25em;
-    font-size: 12pt;
-}
-
-#settings QLabel {
-    font-size: 13pt;
-    margin-top: 0.4em;
-}
-
-#settings QComboBox {
-    font-size: 10pt;
-    padding: 0.3em;
-}
-
-#settings QListWidget {
-    font-size: 10pt;
-}
-
-#settings QListWidget::item {
-    margin: 0.25em;
-}
+/* Fluent 2 proportions; palette roles keep light and dark themes consistent. */
+QWidget { color: palette(window-text); font-family: "Segoe UI", "DejaVu Sans"; font-size: 13px; }
+QMainWindow, QStackedWidget, #renameWorkspace { background: palette(window); }
+QDialog { background: palette(window); }
+#navigationPane { background: palette(alternate-base); border-right: 1px solid palette(mid); }
+QListWidget#menu { background: transparent; border: none; outline: 0; }
+QListWidget#menu::item { padding: 0 10px; margin: 2px 0; border-radius: 4px; border-left: 3px solid transparent; }
+QListWidget#menu::item:hover { background: palette(highlight); }
+QListWidget#menu::item:selected { background: palette(highlight); color: palette(text); border-left: 3px solid #0067c0; }
+#pageTitle { font-size: 29px; font-weight: 600; padding: 0; }
+#secondaryText { color: palette(placeholder-text); font-size: 12px; }
+#previewCard { background: palette(base); border: 1px solid palette(mid); border-radius: 8px; }
+QPushButton { background: palette(button); border: 1px solid palette(mid); border-radius: 4px; padding: 8px 14px; min-height: 20px; }
+QPushButton:hover { background: palette(alternate-base); border-color: #8c9db2; }
+QPushButton:pressed { background: palette(highlight); }
+QPushButton:disabled { color: palette(placeholder-text); background: palette(window); }
+QPushButton:focus, QComboBox:focus, QLineEdit:focus { border: 1px solid #0067c0; }
+QPushButton#primaryButton { background: #0067c0; color: white; border-color: #0067c0; }
+QPushButton#primaryButton:hover { background: #1977c9; }
+QPushButton#primaryButton:pressed { background: #00569f; }
+QPushButton#primaryButton:disabled { background: palette(mid); border-color: palette(mid); color: palette(placeholder-text); }
+QPushButton#subtleButton, QPushButton#linkButton, QPushButton#navigationSettings { background: transparent; border: 1px solid transparent; }
+QPushButton#subtleButton:hover, QPushButton#navigationSettings:hover { background: palette(highlight); }
+QPushButton#linkButton { color: palette(link); padding: 4px 2px; }
+QPushButton#linkButton:hover { text-decoration: underline; }
+QPushButton#navigationSettings { text-align: left; padding: 10px; }
+QPushButton#navigationSettings:checked { background: palette(highlight); border-left: 3px solid #0067c0; }
+QLineEdit, QComboBox { background: palette(base); border: 1px solid palette(mid); border-bottom: 1px solid #8993a2; border-radius: 4px; padding: 7px 10px; min-height: 20px; selection-background-color: #0067c0; selection-color: white; }
+QLineEdit:disabled, QComboBox:disabled { color: palette(placeholder-text); background: palette(window); border-color: palette(mid); }
+QComboBox::drop-down { width: 24px; border: none; }
+QComboBox::down-arrow { image: url(resources/chevron.svg); width: 12px; height: 12px; }
+QComboBox QAbstractItemView { background: palette(base); border: 1px solid palette(mid); selection-background-color: palette(highlight); selection-color: palette(text); padding: 4px; }
+QCheckBox { spacing: 8px; min-height: 24px; }
+QCheckBox::indicator, QTableWidget::indicator { width: 16px; height: 16px; border: 1px solid #8b96a5; border-radius: 3px; background: palette(base); }
+QCheckBox::indicator:checked, QTableWidget::indicator:checked { background: #0067c0; border-color: #0067c0; image: url(resources/check.svg); }
+QCheckBox::indicator:disabled { border-color: palette(mid); }
+QTableWidget { background: palette(base); alternate-background-color: palette(alternate-base); border: none; border-top: 1px solid palette(mid); border-bottom: 1px solid palette(mid); selection-background-color: palette(highlight); selection-color: palette(text); outline: 0; }
+QTableWidget::item { border-bottom: 1px solid palette(mid); padding: 6px 12px; }
+QTableWidget::item:selected { background: palette(highlight); }
+QTableWidget QLineEdit { padding: 0 4px; }
+QHeaderView::section { background: palette(alternate-base); color: palette(placeholder-text); border: none; border-right: 1px solid palette(mid); border-bottom: 1px solid palette(mid); padding: 12px; font-weight: 400; }
+QHeaderView { border: none; }
+#emptyState { color: palette(placeholder-text); font-size: 15px; background: transparent; }
+#infoBar { background: palette(alternate-base); border-bottom: 1px solid palette(mid); border-left: 3px solid #d89a16; }
+#infoBar QLabel { font-size: 12px; }
+QTabWidget::pane { border: 1px solid palette(mid); border-radius: 6px; background: palette(base); }
+QTabBar::tab { background: palette(window); padding: 10px 22px; border-bottom: 2px solid transparent; }
+QTabBar::tab:selected { background: palette(base); border-bottom: 2px solid #0067c0; }
+QTextBrowser, #settings QListWidget { background: palette(base); border: 1px solid palette(mid); border-radius: 4px; padding: 12px; }
+#settings QListWidget::item { padding: 8px; }
+QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; }
+QScrollBar::handle:vertical { background: #a0a9b5; min-height: 30px; border-radius: 3px; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
+QProgressBar { border: none; background: palette(mid); }
+QProgressBar::chunk { background: #0067c0; }
+QToolTip { background: palette(base); color: palette(text); border: 1px solid palette(mid); padding: 6px; }

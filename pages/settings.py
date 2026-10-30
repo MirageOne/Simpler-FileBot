@@ -18,6 +18,10 @@ def set_color_theme_on_startup():
     Setting the color theme after elements have been drawn does not work.
     """
 
+    from ui.fluent import apply_theme
+    from PySide6.QtWidgets import QApplication
+    apply_theme(QApplication.instance(), retrieve_theme_from_settings())
+
     if retrieve_theme_from_settings() == "Light":
         QGuiApplication.styleHints().setColorScheme(Qt.ColorScheme.Light)
     else:
@@ -56,16 +60,16 @@ class SettingsPage(QWidget):
             "\n\nFolder Exclusions allows you to exclude 'C:/Stuff Ultra/' but retain everything after during guessing."
         )
         help_button.setAutoRaise(True)
-        add_folders_button = QPushButton("📁 Add Folder")
+        add_folders_button = QPushButton("Add folder")
         add_folders_button.clicked.connect(self.choose_exclusion_folder)
-        delete_folder_button = QPushButton("❌ Delete Folder")
+        delete_folder_button = QPushButton("Delete folder")
         delete_folder_button.clicked.connect(self.delete_selected_excluded_folder)
         folder_exclusion_button_layout.addWidget(help_button)
         folder_exclusion_button_layout.addWidget(add_folders_button)
         folder_exclusion_button_layout.addWidget(delete_folder_button)
 
         # Opens the settings folder when clicked.
-        open_settings_button = QPushButton("📁 Open Settings Folder")
+        open_settings_button = QPushButton("Open settings folder")
         open_settings_button.clicked.connect(self.open_settings_folder)
 
         # Reset Settings UI Components.

@@ -2,105 +2,136 @@ import os
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QTimer
-from PySide6.QtGui import QGuiApplication, QIcon, QPixmap
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QListWidget, QStackedWidget, QSizePolicy
+from PySide6.QtCore import Qt, QSize, QTimer
+from PySide6.QtGui import QFont, QIcon, QPixmap
+from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
+                               QListWidget, QListWidgetItem, QStackedWidget, QPushButton, QLabel)
 
 from pages.core.main_page import MainPage
 from pages.formats import FormatsPage
 from pages.settings import SettingsPage
 from pages.apis import ApisPage
+from backend.settings_backend import retrieve_theme_from_settings
 from backend.utils import resource_path
+from ui.fluent import apply_theme, native_backdrop, icon
 
-# Percentage of the screen's dimensions that various widget sizes should adhere to.
-DEFAULT_APP_WIDTH_SCALING = 0.70
-DEFAULT_APP_HEIGHT_SCALING = 0.60
+
+def page_container(title, subtitle, content):
+    page = QWidget()
+    layout = QVBoxLayout(page)
+    layout.setContentsMargins(30, 24, 30, 24)
+    layout.setSpacing(12)
+    heading = QLabel(title)
+    heading.setObjectName('pageTitle')
+    detail = QLabel(subtitle)
+    detail.setObjectName('secondaryText')
+    layout.addWidget(heading)
+    layout.addWidget(detail)
+    layout.addSpacing(8)
+    layout.addWidget(content, 1)
+    return page
 
 
 class MainWindow(QMainWindow):
-    """Container for different Widgets/Pages with a menu-style list for switching between pages."""
-    main_page: MainPage
-
+    """Native system frame around a Fluent-style navigation shell."""
     def __init__(self):
         super().__init__()
-        central_layout = QHBoxLayout()
-        screen_size_info = QGuiApplication.primaryScreen().availableGeometry()
-
-        # Widget (List) that displays clickable tabs that allows for switching pages.
+        theme = retrieve_theme_from_settings()
+        apply_theme(QApplication.instance(), theme)
+        self.setWindowTitle('Simpler FileBot')
+        self.setWindowIcon(QIcon(QPixmap(resource_path('resources/Alternative App Logo.png'))))
+        self.resize(1380, 900)
+        self.setMinimumSize(1040, 720)
+        shell = QWidget()
+        shell_layout = QHBoxLayout(shell)
+        shell_layout.setContentsMargins(0, 0, 0, 0)
+        shell_layout.setSpacing(0)
+        self.sidebar = QWidget()
+        self.sidebar.setObjectName('navigationPane')
+        self.sidebar.setFixedWidth(208)
+        navigation = QVBoxLayout(self.sidebar)
+        navigation.setContentsMargins(8, 14, 8, 14)
+        navigation.setSpacing(12)
+        self.menu_toggle = QPushButton()
+        self.menu_toggle.setIcon(icon('menu', '#748093'))
+        self.menu_toggle.setObjectName('subtleButton')
+        self.menu_toggle.setFixedSize(40, 36)
+        self.menu_toggle.setToolTip('Collapse navigation')
+        self.menu_toggle.setAccessibleName('Toggle navigation')
+        self.menu_toggle.clicked.connect(self.toggle_navigation)
+        navigation.addWidget(self.menu_toggle)
         self.menu = QListWidget()
-        self.menu.addItems(["🖋  Rename", "💾  Formats", "⚙️  Settings", "🔑  APIs"])
-        central_layout.addWidget(self.menu)
-
-        # QStackedWidget that stores different pages/widgets that can be switched to/from.
+        self.menu.setObjectName('menu')
+        self.menu.setIconSize(QSize(20, 20))
+        self.menu.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.menu.setAccessibleName('Main navigation')
+        for text, glyph in (('Rename', 'rename'), ('Formats', 'formats'), ('Metadata', 'metadata')):
+            item = QListWidgetItem(icon(glyph, '#748093'), text)
+            item.setSizeHint(QSize(184, 46))
+            item.setToolTip(text)
+            self.menu.addItem(item)
+        navigation.addWidget(self.menu, 1)
+        self.settings_button = QPushButton('Settings')
+        self.settings_button.setIcon(icon('settings', '#748093'))
+        self.settings_button.setObjectName('navigationSettings')
+        self.settings_button.setCheckable(True)
+        self.settings_button.clicked.connect(self.open_settings)
+        navigation.addWidget(self.settings_button)
+        shell_layout.addWidget(self.sidebar)
         self.pages = QStackedWidget()
         self.main_page = MainPage()
+        self.formats_page = FormatsPage()
         self.pages.addWidget(self.main_page)
-        self.pages.addWidget(FormatsPage())
-        self.pages.addWidget(SettingsPage())
-        self.pages.addWidget(ApisPage())
-        self.pages.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
-        central_layout.addWidget(self.pages)
-
-        # Connects signal for when the user clicks on a menu tab to setCurrentIndex()'s slot to change pages.
-        self.menu.currentRowChanged.connect(self.pages.setCurrentIndex)
+        self.pages.addWidget(page_container('Formats', 'Choose how your movies and TV episodes are named.', self.formats_page))
+        self.pages.addWidget(page_container('Metadata', 'Connect your metadata providers. API keys stay on this device.', ApisPage()))
+        self.pages.addWidget(page_container('Settings', 'Make Simpler FileBot work your way.', SettingsPage()))
+        shell_layout.addWidget(self.pages, 1)
+        self.setCentralWidget(shell)
+        self.menu.currentRowChanged.connect(self.navigate)
+        self.main_page.renamer_widget.editFormatRequested.connect(lambda: self.menu.setCurrentRow(1))
         self.menu.setCurrentRow(0)
+        self._collapsed = False
+        native_backdrop(self, theme == 'Dark')
 
-        # Package the central_layout into a QWidget container as QMainWindow works with Widgets, not layouts.
-        central_widget_container = QWidget()
-        central_widget_container.setLayout(central_layout)
-        self.setCentralWidget(central_widget_container)
+    def navigate(self, row):
+        if row >= 0:
+            self.pages.setCurrentIndex(row)
+            self.settings_button.setChecked(False)
 
-        # Set style identifier for the page-switching menu.
-        self.menu.setObjectName("menu")
-        # Enforce a minimum size limit for the menu. Otherwise, it'll shrink past the text.
-        menu_items_width = self.menu.sizeHintForColumn(0)
-        self.menu.setMinimumWidth(menu_items_width + 15)  # Add extra padding on a menu item for QoL.
-        self.menu.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+    def open_settings(self):
+        self.menu.setCurrentRow(-1)
+        self.pages.setCurrentIndex(3)
+        self.settings_button.setChecked(True)
 
-        # Additional window setup.
-        self.setWindowTitle("Simpler FileBot v1.5.7")
-        self.setWindowIcon(QIcon(QPixmap(resource_path("resources/Alternative App Logo.png"))))
-
-        # Set the main application to start at a percentage of the screen's size.
-        default_screen_width = int(screen_size_info.width() * DEFAULT_APP_WIDTH_SCALING)
-        default_screen_height = int(screen_size_info.height() * DEFAULT_APP_HEIGHT_SCALING)
-        self.resize(default_screen_width, default_screen_height)
+    def toggle_navigation(self):
+        self._collapsed = not self._collapsed
+        self.sidebar.setFixedWidth(64 if self._collapsed else 208)
+        for row, text in enumerate(('Rename', 'Formats', 'Metadata')):
+            self.menu.item(row).setText('' if self._collapsed else text)
+        self.settings_button.setText('' if self._collapsed else 'Settings')
+        self.settings_button.setToolTip('Settings')
+        self.menu_toggle.setToolTip('Expand navigation' if self._collapsed else 'Collapse navigation')
 
 
 def apply_stylesheet(application: QApplication, qss_path: str):
-    with Path(qss_path).open("r", encoding="utf-8") as style_file:
-        application.setStyleSheet(style_file.read())
+    application.setStyle('Fusion')
+    application.setFont(QFont('Segoe UI', 10))
+    with Path(qss_path).open('r', encoding='utf-8') as stylesheet:
+        contents = stylesheet.read()
+        for filename in ('check.svg', 'chevron.svg'):
+            path = resource_path('resources/' + filename).replace('\\', '/')
+            contents = contents.replace(f'url(resources/{filename})', f'url("{path}")')
+        application.setStyleSheet(contents)
 
 
-def collect_files(paths: list[str]) -> list[str]:
-    """Collect only files from given paths, i.e., iterate through all folders and look for files."""
-    discovered_files = []
-    for path in paths:
-        if os.path.isdir(path):
-            # os.walk() traverses every folder and nested subfolder.
-            for root_folder, _, files in os.walk(path):
-                for file in files:
-                    discovered_files.append(os.path.join(root_folder, file))
-        elif os.path.isfile(path):
-            discovered_files.append(path)
-
-    return discovered_files
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app = QApplication(sys.argv)
-    apply_stylesheet(app, resource_path("styles/default.qss"))
+    apply_stylesheet(app, resource_path('styles/default.qss'))
     main_window = MainWindow()
     main_window.show()
-
-    # Check if a folder or file was dropped onto the executable.
-    if len(sys.argv) > 1:
-        dropped_paths = [path for path in sys.argv[1:] if os.path.exists(path)]
-        if dropped_paths:
-            main_window.main_page.add_files(collect_files(dropped_paths))
-
-    # If running as a GitHub Actions build check, auto-quit after one second since app is a UI.
-    if os.environ.get("CI", "false").lower() == "true":
+    dropped_paths = [path for path in sys.argv[1:] if os.path.exists(path)]
+    if dropped_paths:
+        main_window.main_page.add_files(dropped_paths)
+    if os.environ.get('CI', 'false').lower() == 'true':
         QTimer.singleShot(1000, app.quit)
-
     sys.exit(app.exec())

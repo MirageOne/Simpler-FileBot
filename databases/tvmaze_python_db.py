@@ -16,6 +16,7 @@ class TVMazePythonDB(Database):
     def __init__(self, media_records: list[MediaRecord], is_tv_series: bool = False):
         super().__init__(media_records, is_tv_series)
         self.api = Api()
+        self._listings = None
 
     def retrieve_media_titles_from_db(self) -> list[str | None]:
         """
@@ -24,7 +25,7 @@ class TVMazePythonDB(Database):
         However, for cases such as 'Doctor Who (2005)' and 'Doctor Who (2023)', this method will default to the newest
         listing. Users will get an opportunity to change the matched year from [auto] before matching with a database.
         """
-        possible_listings: ResultSet[Model | None] = self.api.search.shows(self.media_records[0].title)
+        possible_listings: ResultSet[Model | None] = self._search_shows()
 
         if len(possible_listings) == 0:
             return [None] * len(self.media_records)
@@ -70,13 +71,18 @@ class TVMazePythonDB(Database):
         if self.media_records[0].year is not None:
             return [self.media_records[0].year] * len(self.media_records)
 
-        possible_listings: ResultSet[Model | None] = self.api.search.shows(self.media_records[0].title)
+        possible_listings: ResultSet[Model | None] = self._search_shows()
 
         if len(possible_listings) == 0:
             return [None] * len(self.media_records)
 
         # Since there's no matched year from the input list of MediaRecords, return the premiere year of the 1st result.
         return [get_premiere_year_of_listing(possible_listings[0])] * len(self.media_records)
+
+    def _search_shows(self):
+        if self._listings is None:
+            self._listings = self.api.search.shows(self.media_records[0].title)
+        return self._listings
 
 
 def filter_listings_within_one_year_of_target(possible_listings: ResultSet[Model | None], target_year: int) -> list:

@@ -59,7 +59,8 @@ class MediaRecord:
         self.year: int | None = self.metadata.get("year")
 
         # Attempt to fill in 'season' or 'episode' if missing (This should not affect movies).
-        self._enrich_metadata_via_file_name()
+        if not use_only_filename_for_analysis:
+            self._enrich_metadata_via_file_name()
 
         # Whether an episode is in absolute order or not.
         self.is_absolute_order: bool = False
@@ -71,6 +72,8 @@ class MediaRecord:
 
         This method attempts to analyze the metadata for a series episode using only the file name if
         'season' or 'episode' is missing from the MediaRecord and fills them in."""
+        if self.metadata.get("season") is not None and self.metadata.get("episode") is not None:
+            return
         file_name_metadata: dict = guessit(self.file_name)
 
         if self.metadata.get("season") is None:

@@ -1,7 +1,4 @@
 @echo off
-python -m pip install --upgrade pyinstaller
-python -m pip install --upgrade -r requirements.txt
-python -m PyInstaller main.spec
-echo.
-echo Build complete. The executable can be found in the "dist" folder.
-pause
+setlocal
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\build-windows.ps1" -Target Portable %*
+exit /b %errorlevel%

@@ -45,8 +45,7 @@ class CoreToolBar(QWidget):
     @Slot()
     def open_files(self):
         file_paths, _ = QFileDialog.getOpenFileNames(None, "Select Media Files")
-        for file_path in file_paths:
-            self.input_box.add_file_to_list(file_path)
+        self.input_box.import_paths(file_paths)
 
     @Slot()
     def remove_file(self):

@@ -84,3 +84,35 @@ def test_api_key_check_with_existing_api_key_returns_true(qtbot: QtBot, monkeypa
     monkeypatch.setattr(api_key_config, "get", lambda key: "Sample_key")
 
     assert check_if_api_key_exists_otherwise_prompt_user("tvmaze")
+
+
+def test_failed_match_can_be_retried(qtbot, monkeypatch):
+    from PySide6.QtWidgets import QApplication
+    from backend.database_worker import DatabaseWorker
+    from databases.file_name_match_db import FileNameMatchDB
+    inputs = DragAndDropFilesWidget()
+    inputs.add_file_to_list('Iron Man (2008).mkv')
+    output = QListWidget()
+    dialog = MatchOptionsWidget(inputs, output)
+    qtbot.addWidget(dialog)
+    dialog.show()
+
+    def fail(worker):
+        worker.error.emit('The metadata request timed out. Try again.')
+
+    monkeypatch.setattr(DatabaseWorker, 'run', fail)
+    dialog.start_match(FileNameMatchDB(dialog.media_records))
+    qtbot.waitUntil(lambda: not dialog._busy)
+    assert dialog.isVisible()
+    assert dialog.isEnabled()
+    assert 'timed out' in dialog.error_label.text()
+    assert QApplication.overrideCursor() is None
+
+    def succeed(worker):
+        worker.finished.emit(['Iron Man (2008).mkv'])
+
+    monkeypatch.setattr(DatabaseWorker, 'run', succeed)
+    dialog.start_match(FileNameMatchDB(dialog.media_records))
+    qtbot.waitUntil(lambda: dialog.result() == QDialog.DialogCode.Accepted)
+    assert output.item(0).text() == 'Iron Man (2008).mkv'
+    assert dialog.error_label.text() == ''

@@ -55,3 +55,12 @@ def test_series_year_lookup_successful(mock_client_cls, _fake_key):
     database = OMDBPythonDB([MediaRecord("The.West.Wing.S01E01.mkv")], True)
 
     assert database.retrieve_media_years_from_db() == [1999]
+
+
+@patch('databases.omdb_python_db.OMDBClient')
+def test_movie_title_and_year_share_response(client):
+    client.return_value.get.return_value = {'title': 'Iron Man', 'year': '2008'}
+    db = OMDBPythonDB([MediaRecord('Iron Man.mkv')])
+    assert db.retrieve_media_titles_from_db() == ['Iron Man']
+    assert db.retrieve_media_years_from_db() == ['2008']
+    client.return_value.get.assert_called_once()

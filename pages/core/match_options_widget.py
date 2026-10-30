@@ -31,6 +31,10 @@ class MatchOptionsWidget(QDialog):
         self.output_box = output_box
 
         layout = QVBoxLayout(self)
+        self.error_label = QLabel()
+        self.error_label.setWordWrap(True)
+        self.error_label.setTextFormat(Qt.TextFormat.PlainText)
+        layout.addWidget(self.error_label)
 
         # Retrieve media records from files_widget.
         self.media_records = []
@@ -203,6 +207,10 @@ class MatchOptionsWidget(QDialog):
             if not response:
                 return
 
+        if self._busy:
+            return
+        self.error_label.clear()
+
         # Block UI clicks while the database call is running.
         self.setEnabled(False)
         # Change the cursor to a waiting cursor and restore it when the output box receives the matched titles.
@@ -237,13 +245,13 @@ class MatchOptionsWidget(QDialog):
         self._busy = False
         self.accept()
 
-    @Slot()
-    def handle_database_query_error(self):
-        # Return the UI state to normal and close the MatchOptionsWidget window.
+    @Slot(str)
+    def handle_database_query_error(self, message: str):
+        # Keep the dialog open so users can retry or choose another provider.
         self.setEnabled(True)
         QApplication.restoreOverrideCursor()
         self._busy = False
-        self.close()
+        self.error_label.setText(message)
 
 
 def check_if_api_key_exists_otherwise_prompt_user(json_key: str) -> bool:

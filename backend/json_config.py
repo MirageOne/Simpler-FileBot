@@ -2,7 +2,7 @@ import json
 from json import JSONDecodeError
 from pathlib import Path
 
-from platformdirs import user_data_dir
+from backend.app_paths import application_data_dir
 
 
 class JSONConfig:
@@ -13,7 +13,7 @@ class JSONConfig:
     defaults: dict
 
     def __init__(self, filename: str, defaults: dict):
-        self.path = Path(user_data_dir(appauthor=False, appname="Simpler FileBot")) / filename
+        self.path = application_data_dir() / filename
         self.defaults = defaults
         self._ensure_exists()
 

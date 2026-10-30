@@ -113,3 +113,150 @@ def test_create_formatted_movie_title_correctly():
     formatted_title = create_formatted_title(format_template, movie_context)
 
     assert formatted_title == "2025 Warfare (2025)"
+
+
+def test_existing_target_is_never_overwritten(tmp_path):
+    source, target = tmp_path / 'source.mkv', tmp_path / 'target.mkv'
+    source.write_text('source')
+    target.write_text('keep')
+    with pytest.raises(FileExistsError):
+        perform_file_renaming([str(source)], [str(target)])
+    assert source.read_text() == 'source'
+    assert target.read_text() == 'keep'
+
+
+def test_duplicate_targets_rejected_before_any_rename(tmp_path):
+    sources = [tmp_path / name for name in ('a', 'b')]
+    for source in sources:
+        source.write_text(source.name)
+    with pytest.raises(ValueError):
+        perform_file_renaming(list(map(str, sources)), [str(tmp_path / 'c')] * 2)
+    assert all(source.exists() for source in sources)
+
+
+def test_missing_source_rejected_before_any_rename(tmp_path):
+    source = tmp_path / 'source'
+    source.write_text('keep')
+    with pytest.raises(FileNotFoundError):
+        perform_file_renaming([str(source), str(tmp_path / 'missing')],
+                              [str(tmp_path / 'new'), str(tmp_path / 'other')])
+    assert source.read_text() == 'keep'
+
+
+def test_partial_failure_records_only_completed_renames(tmp_path, monkeypatch):
+    import backend.core_backend as backend
+    sources = [tmp_path / name for name in ('a', 'b')]
+    targets = [tmp_path / name for name in ('c', 'd')]
+    for source in sources:
+        source.write_text(source.name)
+    real_rename = backend._rename_without_overwrite
+
+    def fail_second(source, target):
+        if source == str(sources[1]):
+            raise PermissionError('locked')
+        real_rename(source, target)
+
+    monkeypatch.setattr(backend, '_rename_without_overwrite', fail_second)
+    completed = []
+    with pytest.raises(PermissionError):
+        perform_file_renaming(list(map(str, sources)), list(map(str, targets)), completed)
+    assert completed == [(str(targets[0]), str(sources[0]))]
+    assert targets[0].read_text() == 'a'
+    assert sources[1].read_text() == 'b'
+
+
+def test_target_created_after_validation_is_preserved(tmp_path, monkeypatch):
+    import backend.core_backend as backend
+    source, target = tmp_path / 'a', tmp_path / 'b'
+    source.write_text('source')
+    real_rename = backend._rename_without_overwrite
+
+    def race(source, target):
+        from pathlib import Path
+        Path(target).write_text('racing writer')
+        real_rename(source, target)
+
+    monkeypatch.setattr(backend, '_rename_without_overwrite', race)
+    with pytest.raises(FileExistsError):
+        perform_file_renaming([str(source)], [str(target)])
+    assert source.read_text() == 'source'
+    assert target.read_text() == 'racing writer'
+
+
+def test_missing_episode_is_marked_in_output():
+    record = MediaRecord('Show.S01E01.mkv')
+    record.metadata.pop('episode', None)
+    titles = match_titles_using_db_and_format(FileNameMatchDB([record], True))
+    assert 'E{None}' in titles[0]
+
+
+def test_fallback_rename_preserves_existing_destination(tmp_path, monkeypatch):
+    import backend.core_backend as backend
+    if os.name == 'nt':
+        pytest.skip('POSIX fallback')
+    monkeypatch.setattr(backend.sys, 'platform', 'darwin')
+    source, target = tmp_path / 'a', tmp_path / 'b'
+    source.write_text('source')
+    target.write_text('keep')
+    with pytest.raises(FileExistsError):
+        backend._rename_without_overwrite(str(source), str(target))
+    assert source.read_text() == 'source'
+    assert target.read_text() == 'keep'
+
+
+def test_fallback_removes_new_link_if_source_cannot_be_removed(tmp_path, monkeypatch):
+    import backend.core_backend as backend
+    if os.name == 'nt':
+        pytest.skip('POSIX fallback')
+    monkeypatch.setattr(backend.sys, 'platform', 'darwin')
+    source, target = tmp_path / 'a', tmp_path / 'b'
+    source.write_text('source')
+    real_unlink = os.unlink
+
+    def fail_source(path, *args, **kwargs):
+        if path == str(source):
+            raise PermissionError('locked')
+        real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(backend.os, 'unlink', fail_source)
+    with pytest.raises(PermissionError):
+        backend._rename_without_overwrite(str(source), str(target))
+    assert source.read_text() == 'source'
+    assert not target.exists()
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows case-insensitive rename')
+def test_windows_case_only_rename_can_be_undone(tmp_path):
+    source, target = tmp_path / 'movie.mkv', tmp_path / 'Movie.mkv'
+    source.write_text('keep')
+    completed = []
+    perform_file_renaming([str(source)], [str(target)], completed)
+    assert [path.name for path in tmp_path.iterdir()] == ['Movie.mkv']
+    assert completed == [(str(target), str(source))]
+    perform_file_renaming([str(target)], [str(source)])
+    assert [path.name for path in tmp_path.iterdir()] == ['movie.mkv']
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows exclusive file lock')
+def test_windows_locked_file_raises_and_has_no_undo_entry(tmp_path):
+    import ctypes
+    from ctypes import wintypes
+    source, target = tmp_path / 'source.mkv', tmp_path / 'target.mkv'
+    source.write_text('keep')
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID,
+                                   wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    kernel.CreateFileW.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
+    handle = kernel.CreateFileW(str(source), 0x80000000, 0, None, 3, 0x80, None)
+    assert handle != wintypes.HANDLE(-1).value
+    completed = []
+    try:
+        with pytest.raises(PermissionError):
+            perform_file_renaming([str(source)], [str(target)], completed)
+    finally:
+        kernel.CloseHandle(handle)
+    assert completed == []
+    assert source.read_text() == 'keep'
+    assert not target.exists()

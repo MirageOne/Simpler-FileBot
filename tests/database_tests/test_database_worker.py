@@ -38,3 +38,15 @@ def test_error_signal_emits_on_exception(qtbot: QtBot, monkeypatch: MonkeyPatch)
         # Verify that the error signal is emitted.
         with qtbot.waitSignal(database_worker.error):
             QThreadPool.globalInstance().start(database_worker)
+
+
+def test_authentication_error_message_does_not_expose_api_key():
+    from requests import Response
+    from requests.exceptions import HTTPError
+    from backend.database_worker import database_error_message
+    response = Response()
+    response.status_code = 401
+    message = database_error_message(HTTPError('https://example.test/?api_key=SECRET', response=response))
+    assert 'API key' in message
+    assert 'SECRET' not in message
+    assert 'https://' not in message

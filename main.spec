@@ -1,52 +1,44 @@
-# -*- mode: python ; coding: utf-8 -*-
+# Build on the target OS. Produces a self-contained one-directory application.
+from pathlib import Path
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('styles', 'styles'), ('resources', 'resources')]
+root = Path(SPECPATH)
+datas = [(str(root / 'styles'), 'styles'), (str(root / 'resources'), 'resources')]
 binaries = []
 hiddenimports = []
-tmp_ret = collect_all('babelfish')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('guessit')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-
-
-import os
-
-# Gets the path to the folder where this .spec file is located
-work_dir = os.path.abspath(os.getcwd())
+for package in ('babelfish', 'guessit'):
+    package_data, package_binaries, package_imports = collect_all(
+        package,
+        filter_submodules=lambda name: not any(part in {'test', 'tests'} for part in name.split('.')),
+        exclude_datas=['**/test/**', '**/tests/**'],
+    )
+    datas += package_data
+    binaries += package_binaries
+    hiddenimports += package_imports
 
 a = Analysis(
-    [os.path.join(work_dir, 'main.py')],
-    pathex=[work_dir],
+    [str(root / 'main.py')],
+    pathex=[str(root)],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
-    hookspath=[],
-    hooksconfig={},
-    runtime_hooks=[],
-    excludes=['PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets', 'PySide6.Qt3DCore', 'PySide6.Qt3DRender', 'PySide6.QtCharts', 'PySide6.QtDataVisualization', 'PySide6.QtBluetooth', 'PySide6.QtMultimedia', 'PySide6.QtQuick', 'PySide6.QtNetwork'],
+    excludes=['PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets',
+              'PySide6.Qt3DCore', 'PySide6.Qt3DRender', 'PySide6.QtCharts',
+              'PySide6.QtDataVisualization', 'PySide6.QtBluetooth', 'PySide6.QtMultimedia',
+              'PySide6.QtQuick'],
     noarchive=False,
     optimize=0,
 )
 pyz = PYZ(a.pure)
-
 exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.datas,
-    [],
+    pyz, a.scripts, [],
+    exclude_binaries=True,
     name='Simpler-FileBot',
+    icon=str(root / 'resources' / 'Alternative App Logo.png'),
     debug=False,
-    bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
 )
+coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name='Simpler-FileBot')

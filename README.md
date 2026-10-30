@@ -14,13 +14,13 @@ This is a batch file-renaming GUI tool for movies and tv shows.
   Make sure `pip` is installed and `Python` is added to your environment variables.
 
 ## Modern PySide6 UI
-<img src="https://github.com/user-attachments/assets/5168d8e2-c09d-46ba-99f4-dbcf78b573a2" width="75%">
+<img src="docs/images/rename-light.png" width="75%">
 
 ## Light & Dark Mode
-<img src="https://github.com/user-attachments/assets/a5d634e1-1861-4c98-b5e3-9d962c2afa35" width="75%">
+<img src="docs/images/rename-dark.png" width="75%">
 
 ## Installation
-[Download Source Code](https://github.com/StrawberryStego/Simpler-FileBot/releases)
+[Download Source Code](https://github.com/MirageOne/Simpler-FileBot/releases)
 
 ### Executable (Currently only for Windows)
 
@@ -38,6 +38,23 @@ This is a batch file-renaming GUI tool for movies and tv shows.
 - `Run install_dependencies.bat`
 
 - `Use launcher.bat to open Simpler FileBot`
+
+## Windows builds
+
+See [Windows build instructions](docs/windows-build.md) for local setup, portable ZIPs, the Inno Setup installer, and GitHub Actions artifacts.
+
+## Rename workspace
+
+The Fluent-style interface provides an editable preview table, inline metadata matching, and light/dark themes.
+Windows supplies the native title bar; Windows 11 backdrop support is enabled when available. The UI remains built with PySide6.
+
+1. Choose **Add files**, **Add folder**, or drop media into the table. Folder imports run in the background and can be cancelled.
+2. Choose a metadata source and select **Match files**. Use **Local metadata** to work without an API connection.
+3. Review the original and proposed names together. Double-click a new filename to edit it. Missing metadata, invalid names, and collisions are marked **Review** and skipped.
+4. Check the files to include, then select **Rename**. Files stay in their original folders. **Undo last rename** also supports completed changes after a partial failure.
+
+**Formats**, **Metadata**, and **Settings** are available from the navigation pane. API keys are configured on the Metadata page.
+Keyboard shortcuts: **Ctrl+O** adds files, **Ctrl+Shift+O** adds a folder, **Alt+M** matches, **Delete** removes highlighted rows, and **Ctrl+Z** undoes the last rename.
 
 ## Supported Databases
 `Simpler FileBot uses the following databases/APIs but is not endorsed, certified, or otherwise approved.`

@@ -15,7 +15,7 @@ def ensure() -> JSONConfig:
         _settings_json_config = JSONConfig(
             "settings.json",
             {
-                "theme": (Qt.ColorScheme.Dark.name
+                "theme": (Qt.ColorScheme.Light.name
                           if QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Unknown
                           else QGuiApplication.styleHints().colorScheme().name),
                 "excluded_folders": [],

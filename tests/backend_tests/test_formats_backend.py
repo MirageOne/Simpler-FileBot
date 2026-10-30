@@ -52,3 +52,20 @@ def test_save_new_series_format_to_formats_file_successful(redirect_formats_file
     save_new_series_format_to_formats_file(new_series_format)
 
     assert retrieve_series_format_from_formats_file() == new_series_format
+
+
+@pytest.mark.parametrize('template', ['{unknown}', '{movie_name', '{movie_name.__class__}', '{}', '', '{year:{bad}}'])
+def test_invalid_movie_format_does_not_replace_saved_format(template, redirect_formats_file_path_to_temp_file):
+    before = retrieve_movies_format_from_formats_file()
+    with pytest.raises(ValueError):
+        save_new_movies_format_to_formats_file(template)
+    assert retrieve_movies_format_from_formats_file() == before
+
+
+def test_series_placeholder_is_rejected_in_movie_format(redirect_formats_file_path_to_temp_file):
+    with pytest.raises(ValueError):
+        save_new_movies_format_to_formats_file('{episode_title}')
+
+
+def test_valid_preview_supports_escaped_braces():
+    assert formats_backend.preview_format('{{Movie}} {movie_name} ({year})', False) == '{Movie} Interstellar (2014).mkv'

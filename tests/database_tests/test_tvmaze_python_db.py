@@ -67,3 +67,16 @@ def test_retrieve_media_titles_from_db_successful(mock_api_cls):
     )
 
     assert db.retrieve_media_titles_from_db() == ["Two Cathedrals", "Twenty Five"]
+
+
+@patch('databases.tvmaze_python_db.Api')
+def test_title_and_year_reuse_show_search(api_cls):
+    api = api_cls.return_value
+    api.search.shows.return_value = [SimpleNamespace(id=42, premiered='1999-09-22')]
+    api.show.episodes.return_value = [SimpleNamespace(season=1, number=1, name='Pilot')]
+    record = MediaRecord('The.West.Wing.S01E01.mkv')
+    record.year = None
+    db = TVMazePythonDB([record], True)
+    assert db.retrieve_media_titles_from_db() == ['Pilot']
+    assert db.retrieve_media_years_from_db() == [1999]
+    api.search.shows.assert_called_once()
