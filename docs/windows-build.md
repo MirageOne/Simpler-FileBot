@@ -29,7 +29,15 @@ cd Simpler-FileBot
 git switch WinUI3
 ```
 
-In an existing checkout, run `git fetch origin` and `git switch WinUI3`. Confirm you are at the root:
+In an existing checkout, update the branch before building:
+
+```powershell
+git fetch origin
+git switch WinUI3
+git pull --ff-only origin WinUI3
+```
+
+Confirm you are at the root:
 
 ```powershell
 Test-Path .\src\SimplerFileBot.WinUI\SimplerFileBot.WinUI.csproj
@@ -80,7 +88,7 @@ If `dotnet` is not recognized, close and reopen PowerShell after installing the 
 
 If a Windows App SDK or XAML build target is missing, open Visual Studio Installer and add the Windows application development workload and current Windows SDK. Then rerun `dotnet restore .\src\SimplerFileBot.WinUI\SimplerFileBot.WinUI.csproj`.
 
-If the portable executable closes without opening a window, extract the full ZIP and run `Simpler-FileBot.exe` from its extracted folder. Rebuild from the latest `WinUI3` branch; the build script clears stale publish files. The startup check can be run on Windows with `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-test-windows.ps1 -Directory .\build\windows\portable\Simpler-FileBot-2.1.1-portable-x64`. If startup still fails, check `%LOCALAPPDATA%\Simpler FileBot\startup-error.log` and Windows Event Viewer → Windows Logs → Application.
+If the portable executable closes without opening a window, rebuild from the latest `WinUI3` branch and extract the new ZIP into an empty folder. Run `Simpler-FileBot.exe` from that extracted folder; the build script clears stale publish files. The startup check can be run on Windows with `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-test-windows.ps1 -Directory .\build\windows\portable\Simpler-FileBot-2.1.1-portable-x64`. If startup still fails, check `%LOCALAPPDATA%\Simpler FileBot\startup-error.log` and Windows Event Viewer → Windows Logs → Application.
 
 If Inno Setup is installed but the script cannot find `ISCC.exe`, locate it and pass its full path:
 
