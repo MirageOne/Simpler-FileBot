@@ -1,6 +1,6 @@
 ; Build through scripts/build-windows.ps1 with Inno Setup 6.3+.
 #ifndef AppVersion
-  #define AppVersion "2.1.2"
+  #define AppVersion "2.1.3"
 #endif
 #ifndef AppSourceDir
   #error AppSourceDir must point to the dotnet publish application directory.
@@ -31,6 +31,7 @@ OutputBaseFilename=Simpler-FileBot-{#AppVersion}-setup-x64
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile={#AppSourceDir}\Assets\AppIcon.ico
 UninstallDisplayIcon={app}\Simpler-FileBot.exe
 
 [Tasks]

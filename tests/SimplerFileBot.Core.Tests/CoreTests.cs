@@ -70,9 +70,23 @@ public sealed class CoreTests
             File.WriteAllText(Path.Combine(folder, "settings.json"), "{\"theme\":\"Dark\",\"metadata_source\":\"OMDB\"}");
             var config = new AppConfiguration(folder);
             Assert.Equal("OMDB", config.Settings.MetadataSource);
+            Assert.Equal(ThemeOptions.Dark, config.Settings.Theme);
             config.Settings.MetadataSource = MetadataSources.Tmdb;
             config.SaveSettings();
             Assert.Equal(MetadataSources.Tmdb, new AppConfiguration(folder).Settings.MetadataSource);
+        }
+        finally { Directory.Delete(folder, true); }
+    }
+
+    [Fact]
+    public void NewSettingsFollowSystemThemeByDefault()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "filebot-theme-" + Guid.NewGuid());
+        try
+        {
+            var config = new AppConfiguration(folder);
+            Assert.Equal(ThemeOptions.System, config.Settings.Theme);
+            Assert.Contains("\"theme\": \"System\"", File.ReadAllText(Path.Combine(folder, "settings.json")));
         }
         finally { Directory.Delete(folder, true); }
     }

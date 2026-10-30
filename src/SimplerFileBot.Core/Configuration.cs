@@ -12,9 +12,17 @@ public static class MetadataSources
     public static readonly string[] All = [TvMaze, Tmdb, Omdb, Local];
 }
 
+public static class ThemeOptions
+{
+    public const string System = "System";
+    public const string Light = "Light";
+    public const string Dark = "Dark";
+    public static readonly string[] All = [System, Light, Dark];
+}
+
 public sealed class AppSettings
 {
-    [JsonPropertyName("theme")] public string Theme { get; set; } = "Light";
+    [JsonPropertyName("theme")] public string Theme { get; set; } = ThemeOptions.System;
     [JsonPropertyName("excluded_folders")] public List<string> ExcludedFolders { get; set; } = [];
     [JsonPropertyName("use_only_filename_for_analysis")]
     public bool FilenameOnly { get; set; }
@@ -52,6 +60,7 @@ public sealed class AppConfiguration
         Formats = Read("formats.json", new AppFormats());
         Keys = Read("api_keys.json", new ApiKeys());
         if (!MetadataSources.All.Contains(Settings.MetadataSource)) Settings.MetadataSource = MetadataSources.TvMaze;
+        if (!ThemeOptions.All.Contains(Settings.Theme)) Settings.Theme = ThemeOptions.System;
     }
 
     public void SaveSettings() => Write("settings.json", Settings);

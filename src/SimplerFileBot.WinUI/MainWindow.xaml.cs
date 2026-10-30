@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Text;
 using SimplerFileBot.Core;
 using Windows.ApplicationModel.DataTransfer;
@@ -25,8 +26,8 @@ public sealed partial class MainWindow : Window
     private bool _busy;
     private readonly Dictionary<string, (Button Button, Border Marker, TextBlock Label)> _navigationButtons = [];
     private readonly List<TextBlock> _navigationLabels = [];
+    private Grid _titleBar = null!;
     private ColumnDefinition _railColumn = null!;
-    private TextBlock _brandText = null!;
     private bool _railExpanded = true;
     private Grid RenameView = null!;
     private ScrollViewer FormatsView = null!;
@@ -71,19 +72,26 @@ public sealed partial class MainWindow : Window
 
     public MainWindow()
     {
-        _palette.Apply(_config.Settings.Theme == "Dark");
+        _palette.Apply(ConfiguredDarkTheme());
         Root = new Grid();
         Content = Root;
         Title = "Simpler FileBot";
+        ExtendsContentIntoTitleBar = true;
         Root.AllowDrop = true;
         Root.DragOver += Root_DragOver;
         Root.Drop += Root_Drop;
         BuildUi();
+        SetTitleBar(_titleBar);
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 760));
         SystemBackdrop = new MicaBackdrop();
-        Root.RequestedTheme = _config.Settings.Theme == "Dark" ? ElementTheme.Dark : ElementTheme.Light;
+        Root.RequestedTheme = RequestedElementTheme();
+        Root.ActualThemeChanged += (_, _) => ApplyVisualTheme(Root.ActualTheme == ElementTheme.Dark);
+        Root.Loaded += (_, _) => ApplyVisualTheme(Root.ActualTheme == ElementTheme.Dark);
+        ApplyVisualTheme(ConfiguredDarkTheme());
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
+        if (File.Exists(iconPath)) AppWindow.SetIcon(iconPath);
         SourceCombo.SelectedIndex = Math.Max(0, Array.IndexOf(MetadataSources.All, _config.Settings.MetadataSource));
-        ThemeCombo.SelectedIndex = _config.Settings.Theme == "Dark" ? 1 : 0;
+        ThemeCombo.SelectedIndex = Math.Max(0, Array.IndexOf(ThemeOptions.All, _config.Settings.Theme));
         FilenameOnlySwitch.IsOn = _config.Settings.FilenameOnly;
         FilenameOnlyCheck.IsChecked = _config.Settings.FilenameOnly;
         MovieFormatBox.Text = _config.Formats.Movie;
@@ -158,15 +166,17 @@ public sealed partial class MainWindow : Window
     private void BuildUi()
     {
         Root.Background = _palette.Canvas;
+        SetRows(Root, Pixels(48), Star());
+        _titleBar = BuildTitleBar();
+        AddAt(Root, _titleBar, 0);
         var shell = new Grid { Background = _palette.Canvas };
         _railColumn = new ColumnDefinition { Width = Pixels(208) };
         shell.ColumnDefinitions.Add(_railColumn);
         shell.ColumnDefinitions.Add(new ColumnDefinition { Width = Star() });
-        Root.Children.Add(shell);
+        AddAt(Root, shell, 1);
         var rail = new Grid { Background = _palette.Rail };
         SetRows(rail, Auto(), Star(), Auto());
-        var railHeader = new Grid { Padding = new Thickness(12, 14, 12, 12), ColumnSpacing = 8 };
-        SetColumns(railHeader, Pixels(40), Star());
+        var railHeader = new Grid { Padding = new Thickness(12, 14, 12, 12) };
         var menuButton = Button("", ToggleRail_Click);
         menuButton.Content = Icon("\uE700");
         menuButton.Background = _palette.Rail;
@@ -174,8 +184,6 @@ public sealed partial class MainWindow : Window
         menuButton.Width = 40;
         menuButton.HorizontalAlignment = HorizontalAlignment.Left;
         AddAt(railHeader, menuButton, 0);
-        _brandText = Label("Simpler FileBot", 14, _palette.Text, true);
-        AddAt(railHeader, _brandText, 0, 1);
         AddAt(rail, railHeader, 0);
 
         var navigation = new StackPanel { Spacing = 4, Padding = new Thickness(8, 4, 8, 4) };
@@ -220,6 +228,45 @@ public sealed partial class MainWindow : Window
         ShowSection("rename");
     }
 
+    private Grid BuildTitleBar()
+    {
+        var bar = new Grid { Height = 48, Background = _palette.Rail,
+            Padding = new Thickness(16, 0, 140, 0) };
+        var brand = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10,
+            VerticalAlignment = VerticalAlignment.Center };
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.png");
+        if (File.Exists(iconPath))
+        {
+            brand.Children.Add(new Image { Source = new BitmapImage(new Uri(iconPath)),
+                Width = 22, Height = 22, VerticalAlignment = VerticalAlignment.Center });
+        }
+        brand.Children.Add(Label("Simpler FileBot", 13, _palette.Text, true));
+        bar.Children.Add(brand);
+        return bar;
+    }
+
+    private ElementTheme RequestedElementTheme() => _config.Settings.Theme switch
+    {
+        ThemeOptions.Dark => ElementTheme.Dark,
+        ThemeOptions.Light => ElementTheme.Light,
+        _ => ElementTheme.Default
+    };
+
+    private bool ConfiguredDarkTheme() => _config.Settings.Theme == ThemeOptions.Dark ||
+        _config.Settings.Theme == ThemeOptions.System && Application.Current.RequestedTheme == ApplicationTheme.Dark;
+
+    private void ApplyVisualTheme(bool dark)
+    {
+        _palette.Apply(dark);
+        var titleBar = AppWindow.TitleBar;
+        titleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
+        titleBar.ButtonForegroundColor = _palette.Text.Color;
+        titleBar.ButtonHoverBackgroundColor = _palette.Selection.Color;
+        titleBar.ButtonHoverForegroundColor = _palette.Text.Color;
+        titleBar.ButtonPressedBackgroundColor = _palette.Border.Color;
+        titleBar.ButtonPressedForegroundColor = _palette.Text.Color;
+    }
+
     private void AddNavigationButton(StackPanel panel, string title, string tag, string glyph)
     {
         var content = new Grid { ColumnSpacing = 10 };
@@ -248,7 +295,6 @@ public sealed partial class MainWindow : Window
     {
         _railExpanded = !_railExpanded;
         _railColumn.Width = Pixels(_railExpanded ? 208 : 64);
-        _brandText.Visibility = _railExpanded ? Visibility.Visible : Visibility.Collapsed;
         foreach (var label in _navigationLabels)
             label.Visibility = _railExpanded ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -442,6 +488,7 @@ public sealed partial class MainWindow : Window
     {
         var stack = PageStack("Settings", "Adjust the workspace and filename analysis.", out var fields);
         ThemeCombo = new ComboBox { Header = "Theme" };
+        ThemeCombo.Items.Add(new ComboBoxItem { Content = "Follow system" });
         ThemeCombo.Items.Add(new ComboBoxItem { Content = "Light" });
         ThemeCombo.Items.Add(new ComboBoxItem { Content = "Dark" });
         ThemeCombo.SelectionChanged += ThemeCombo_SelectionChanged;
@@ -806,9 +853,9 @@ public sealed partial class MainWindow : Window
     private void ThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_initializing) return;
-        _config.Settings.Theme = ThemeCombo.SelectedIndex == 1 ? "Dark" : "Light";
-        Root.RequestedTheme = ThemeCombo.SelectedIndex == 1 ? ElementTheme.Dark : ElementTheme.Light;
-        _palette.Apply(ThemeCombo.SelectedIndex == 1);
+        _config.Settings.Theme = ThemeOptions.All[Math.Max(0, ThemeCombo.SelectedIndex)];
+        Root.RequestedTheme = RequestedElementTheme();
+        ApplyVisualTheme(ConfiguredDarkTheme());
         _config.SaveSettings();
     }
     private void FilenameOnlyCheck_Changed(object sender, RoutedEventArgs e)
