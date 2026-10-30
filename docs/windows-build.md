@@ -4,7 +4,7 @@ Use Windows 10 version 1809 or newer, or Windows 11, on an x64 PC. Build on Wind
 
 ## 1. Install build tools
 
-Install the **.NET 8 SDK** (x64), then reopen PowerShell:
+Install the **.NET 8 SDK** (x64), then reopen PowerShell. `global.json` pins the solution to the latest installed .NET 8 SDK feature band:
 
 ```powershell
 winget install --id Microsoft.DotNet.SDK.8 --exact

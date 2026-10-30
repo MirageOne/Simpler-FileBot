@@ -6,6 +6,7 @@ on:
     branches: [main, WinUI3]
     paths:
       - 'src/**'
+      - 'global.json'
       - 'tests/SimplerFileBot.Core.Tests/**'
       - 'scripts/build-windows.ps1'
       - 'packaging/windows/**'
@@ -13,6 +14,7 @@ on:
   pull_request:
     paths:
       - 'src/**'
+      - 'global.json'
       - 'tests/SimplerFileBot.Core.Tests/**'
       - 'scripts/build-windows.ps1'
       - 'packaging/windows/**'
