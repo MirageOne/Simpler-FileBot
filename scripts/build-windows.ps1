@@ -3,7 +3,7 @@ param(
     [ValidateSet('All', 'Portable', 'Installer')]
     [string]$Target = 'All',
     [ValidatePattern('^\d+\.\d+\.\d+$')]
-    [string]$Version = '2.1.3',
+    [string]$Version = '2.1.4',
     [string]$DotNet = 'dotnet',
     [string]$IsccPath = ''
 )
@@ -13,11 +13,12 @@ $ErrorActionPreference = 'Stop'
 if ($env:OS -ne 'Windows_NT') { throw 'Run this script on Windows x64.' }
 $Root = Split-Path $PSScriptRoot -Parent
 $Project = Join-Path $Root 'src\SimplerFileBot.WinUI\SimplerFileBot.WinUI.csproj'
+$LauncherProject = Join-Path $Root 'src\SimplerFileBot.PortableLauncher\SimplerFileBot.PortableLauncher.csproj'
 $Tests = Join-Path $Root 'tests\SimplerFileBot.Core.Tests\SimplerFileBot.Core.Tests.csproj'
 $Dist = Join-Path $Root 'dist\windows'
 $Build = Join-Path $Root 'build\windows'
 $Packages = Join-Path $Dist 'packages'
-$App = Join-Path $Dist 'Simpler-FileBot'
+$App = Join-Path $Build 'app'
 
 & $DotNet --version
 if ($LASTEXITCODE -ne 0) { throw 'Install .NET SDK 10 x64 and make dotnet available on PATH.' }
@@ -46,6 +47,8 @@ Push-Location $Root
 try {
     & $DotNet test $Tests -c Release
     if ($LASTEXITCODE -ne 0) { throw '.NET tests failed.' }
+    $PreviousPublish = Join-Path $Dist 'Simpler-FileBot'
+    if (Test-Path -LiteralPath $PreviousPublish) { Remove-Item -LiteralPath $PreviousPublish -Recurse -Force }
     if (Test-Path -LiteralPath $App) { Remove-Item -LiteralPath $App -Recurse -Force }
     & $DotNet publish $Project -c Release -r win-x64 --self-contained true `
         -p:WindowsAppSDKSelfContained=true -o $App
@@ -57,18 +60,26 @@ try {
     if ($Target -in @('All', 'Portable')) {
         $Name = "Simpler-FileBot-$Version-portable-x64"
         $Stage = Join-Path (Join-Path $Build 'portable') $Name
+        $Payload = Join-Path (Join-Path $Build 'portable') 'payload.zip'
+        $LauncherOutput = Join-Path (Join-Path $Build 'portable') 'launcher'
         if (Test-Path -LiteralPath $Stage) { Remove-Item -LiteralPath $Stage -Recurse -Force }
         New-Item -ItemType Directory -Force -Path $Stage | Out-Null
         Copy-Item -Path (Join-Path $App '*') -Destination $Stage -Recurse
         Copy-Item -LiteralPath (Join-Path $Root 'LICENSE') -Destination $Stage
         Set-Content -LiteralPath (Join-Path $Stage 'portable.flag') -Value '' -Encoding ASCII
-        Set-Content -LiteralPath (Join-Path $Stage 'README-portable.txt') -Encoding UTF8 -Value @'
-Run Simpler-FileBot.exe. Keep the entire extracted folder together.
-No Python or .NET installation is required on the destination computer.
-Settings and API keys are saved in the data folder beside the executable.
-Use a writable folder, and remove data before sharing a used copy.
-'@
-        Compress-Archive -LiteralPath $Stage -DestinationPath (Join-Path $Packages "$Name.zip") -Force
+        Compress-Archive -Path (Join-Path $Stage '*') -DestinationPath $Payload -Force
+        if (Test-Path -LiteralPath $LauncherOutput) { Remove-Item -LiteralPath $LauncherOutput -Recurse -Force }
+        & $DotNet publish $LauncherProject -c Release -r win-x64 --self-contained true `
+            "-p:PayloadZip=$Payload" "-p:Version=$Version" -o $LauncherOutput
+        if ($LASTEXITCODE -ne 0) { throw 'Single-file portable launcher publish failed.' }
+        $LauncherExecutable = Join-Path $LauncherOutput 'Simpler-FileBot-Portable.exe'
+        if (-not (Test-Path -LiteralPath $LauncherExecutable)) { throw 'Portable launcher executable was not produced.' }
+        $ExtraFiles = @(Get-ChildItem -LiteralPath $LauncherOutput -File |
+            Where-Object { $_.FullName -ne $LauncherExecutable })
+        if ($ExtraFiles.Count -ne 0) { throw "Portable launcher publish produced extra files: $($ExtraFiles.Name -join ', ')" }
+        $PortableExecutable = Join-Path $Packages "$Name.exe"
+        Copy-Item -LiteralPath $LauncherExecutable -Destination $PortableExecutable -Force
+        Write-Host "Portable executable: $PortableExecutable"
     }
     if ($Target -in @('All', 'Installer')) {
         & $IsccPath "/DAppVersion=$Version" "/DAppSourceDir=$App" "/DRepoDir=$Root" `

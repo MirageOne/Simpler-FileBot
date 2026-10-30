@@ -1,6 +1,6 @@
 ; Build through scripts/build-windows.ps1 with Inno Setup 6.3+.
 #ifndef AppVersion
-  #define AppVersion "2.1.3"
+  #define AppVersion "2.1.4"
 #endif
 #ifndef AppSourceDir
   #error AppSourceDir must point to the dotnet publish application directory.

@@ -92,6 +92,27 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public void PortableLauncherStoresSettingsInItsOwnDataDirectory()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "filebot-portable-" + Guid.NewGuid());
+        var data = Path.Combine(folder, "data");
+        var name = AppConfiguration.PortableDataDirectoryEnvironmentVariable;
+        var previous = Environment.GetEnvironmentVariable(name);
+        try
+        {
+            Environment.SetEnvironmentVariable(name, data);
+            var config = new AppConfiguration();
+            Assert.Equal(data, config.DataDirectory);
+            Assert.True(File.Exists(Path.Combine(data, "settings.json")));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(name, previous);
+            if (Directory.Exists(folder)) Directory.Delete(folder, true);
+        }
+    }
+
+    [Fact]
     public async Task TvMazeMatchesEpisodeAndAbsoluteOrderWithoutApiKey()
     {
         var handler = new FakeHandler(request => request.RequestUri!.AbsolutePath switch

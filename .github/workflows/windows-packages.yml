@@ -43,16 +43,16 @@ jobs:
             choco install innosetup --no-progress -y
             if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed.' }
           }
-      - name: Test and build portable ZIP and installer
+      - name: Test and build single-file portable EXE and installer
         shell: pwsh
         run: |
           ./scripts/build-windows.ps1 -Target All *>&1 | Tee-Object -FilePath build-output.log
-      - name: Smoke-test extracted portable app
+      - name: Smoke-test single-file portable app
         shell: pwsh
         run: |
-          $Stage = Get-ChildItem ./build/windows/portable -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-          if (-not $Stage) { throw 'Portable staging directory was not produced.' }
-          ./scripts/smoke-test-windows.ps1 -Directory $Stage.FullName *>&1 | Tee-Object -FilePath smoke-output.log
+          $Portable = Get-ChildItem ./dist/windows/packages -Filter '*-portable-x64.exe' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $Portable) { throw 'Single-file portable executable was not produced.' }
+          ./scripts/smoke-test-windows.ps1 -Executable $Portable.FullName -WaitSeconds 60 *>&1 | Tee-Object -FilePath smoke-output.log
       - name: Report build failure
         if: failure()
         shell: pwsh

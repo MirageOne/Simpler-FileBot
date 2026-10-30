@@ -11,7 +11,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>SimplerFileBot.WinUI</RootNamespace>
     <AssemblyName>Simpler-FileBot</AssemblyName>
-    <Version>2.1.3</Version>
+    <Version>2.1.4</Version>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>

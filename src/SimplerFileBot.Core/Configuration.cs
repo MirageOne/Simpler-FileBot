@@ -44,6 +44,7 @@ public sealed class ApiKeys
 
 public sealed class AppConfiguration
 {
+    public const string PortableDataDirectoryEnvironmentVariable = "SIMPLER_FILEBOT_PORTABLE_DATA_DIR";
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     public string DataDirectory { get; }
     public AppSettings Settings { get; private set; }
@@ -52,9 +53,13 @@ public sealed class AppConfiguration
 
     public AppConfiguration(string? dataDirectory = null)
     {
-        DataDirectory = dataDirectory ?? (File.Exists(Path.Combine(AppContext.BaseDirectory, "portable.flag"))
-            ? Path.Combine(AppContext.BaseDirectory, "data")
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Simpler FileBot"));
+        var launcherDataDirectory = Environment.GetEnvironmentVariable(PortableDataDirectoryEnvironmentVariable);
+        if (dataDirectory is not null) DataDirectory = dataDirectory;
+        else if (!string.IsNullOrWhiteSpace(launcherDataDirectory))
+            DataDirectory = Path.GetFullPath(launcherDataDirectory);
+        else if (File.Exists(Path.Combine(AppContext.BaseDirectory, "portable.flag")))
+            DataDirectory = Path.Combine(AppContext.BaseDirectory, "data");
+        else DataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Simpler FileBot");
         Directory.CreateDirectory(DataDirectory);
         Settings = Read("settings.json", new AppSettings());
         Formats = Read("formats.json", new AppFormats());
