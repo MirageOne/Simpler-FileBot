@@ -87,7 +87,7 @@ public sealed partial class MainWindow : Window
     {
         foreach (var width in widths) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = width });
     }
-    private static void AddAt(Grid grid, UIElement child, int row, int column = 0)
+    private static void AddAt(Grid grid, FrameworkElement child, int row, int column = 0)
     {
         Grid.SetRow(child, row);
         Grid.SetColumn(child, column);
