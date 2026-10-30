@@ -19,22 +19,22 @@ For an installer build, install Inno Setup 6.3 or newer. A portable build does n
 winget install --id JRSoftware.InnoSetup --exact
 ```
 
-## 2. Get the WinUI3 branch and test it
+## 2. Get the main branch and test it
 
 For a fresh checkout:
 
 ```powershell
 git clone https://github.com/MirageOne/Simpler-FileBot.git
 cd Simpler-FileBot
-git switch WinUI3
+git switch main
 ```
 
 In an existing checkout, update the branch before building:
 
 ```powershell
 git fetch origin
-git switch WinUI3
-git pull --ff-only origin WinUI3
+git switch main
+git pull --ff-only origin main
 ```
 
 Confirm you are at the root:
@@ -89,7 +89,7 @@ If `dotnet` is not recognized, close and reopen PowerShell after installing the 
 
 If a Windows App SDK or XAML build target is missing, open Visual Studio Installer and add the Windows application development workload and current Windows SDK. Then rerun `dotnet restore .\src\SimplerFileBot.WinUI\SimplerFileBot.WinUI.csproj`.
 
-If the portable executable closes without opening a window, rebuild from the latest `WinUI3` branch and run the new `Simpler-FileBot-2.1.4-portable-x64.exe` from a writable folder. The startup check can be run on Windows with `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-test-windows.ps1 -Executable .\dist\windows\packages\Simpler-FileBot-2.1.4-portable-x64.exe`. If startup still fails, check `data\launcher-error.log` beside the portable EXE, `%LOCALAPPDATA%\Simpler FileBot\startup-error.log`, and Windows Event Viewer → Windows Logs → Application.
+If the portable executable closes without opening a window, rebuild from the latest `main` branch and run the new `Simpler-FileBot-2.1.4-portable-x64.exe` from a writable folder. The startup check can be run on Windows with `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-test-windows.ps1 -Executable .\dist\windows\packages\Simpler-FileBot-2.1.4-portable-x64.exe`. If startup still fails, check `data\launcher-error.log` beside the portable EXE, `%LOCALAPPDATA%\Simpler FileBot\startup-error.log`, and Windows Event Viewer → Windows Logs → Application.
 
 If Inno Setup is installed but the script cannot find `ISCC.exe`, locate it and pass its full path:
 
