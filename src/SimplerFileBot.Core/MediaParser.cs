@@ -6,8 +6,9 @@ public enum MediaKind { Movie, Episode }
 
 public sealed class MediaItem
 {
-    public required string SourcePath { get; set; }
-    public required string Title { get; set; }
+    // WinUI's generated binding metadata needs a public parameterless constructor.
+    public string SourcePath { get; set; } = "";
+    public string Title { get; set; } = "";
     public MediaKind Kind { get; init; }
     public int? Year { get; set; }
     public int? Season { get; init; }
