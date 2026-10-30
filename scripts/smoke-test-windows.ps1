@@ -19,6 +19,10 @@ try {
     $ExitCode = $Process.ExitCode
     Write-Host "Portable app exited during startup with code $ExitCode."
     Start-Sleep -Seconds 3
+    $StartupLog = Join-Path $env:LOCALAPPDATA 'Simpler FileBot\startup-error.log'
+    if ((Test-Path -LiteralPath $StartupLog) -and (Get-Item -LiteralPath $StartupLog).LastWriteTime -ge $Started) {
+        Write-Host "Startup log: $(Get-Content -LiteralPath $StartupLog -Raw)"
+    }
     $Events = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = $Started } -ErrorAction SilentlyContinue |
         Where-Object { $_.ProviderName -in @('.NET Runtime', 'Application Error', 'Windows Error Reporting') -or
                        $_.Message -like '*Simpler-FileBot*' } |
