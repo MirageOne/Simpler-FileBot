@@ -52,17 +52,7 @@ jobs:
         run: |
           $Stage = Get-ChildItem ./build/windows/portable -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
           if (-not $Stage) { throw 'Portable staging directory was not produced.' }
-          $Failed = @()
-          foreach ($Mode in @('empty', 'text', 'button', 'combo', 'list', 'info', 'navigation_empty', 'navigation', 'layout', 'no_mica', 'full')) {
-            if ($Mode -eq 'full') { Remove-Item Env:SIMPLER_FILEBOT_DIAGNOSTIC_UI -ErrorAction SilentlyContinue }
-            else { $env:SIMPLER_FILEBOT_DIAGNOSTIC_UI = $Mode }
-            "Diagnostic UI mode: $Mode" | Tee-Object -FilePath smoke-output.log -Append
-            $WaitSeconds = if ($Mode -eq 'full') { 15 } else { 4 }
-            try { ./scripts/smoke-test-windows.ps1 -Directory $Stage.FullName -WaitSeconds $WaitSeconds *>&1 | Tee-Object -FilePath smoke-output.log -Append }
-            catch { $Failed += $Mode; $_ | Tee-Object -FilePath smoke-output.log -Append }
-          }
-          "Failed UI modes: $($Failed -join ', ')" | Tee-Object -FilePath smoke-output.log -Append
-          if ($Failed.Count) { throw "Portable startup failed in UI modes: $($Failed -join ', ')" }
+          ./scripts/smoke-test-windows.ps1 -Directory $Stage.FullName *>&1 | Tee-Object -FilePath smoke-output.log
       - name: Report build failure
         if: failure()
         shell: pwsh

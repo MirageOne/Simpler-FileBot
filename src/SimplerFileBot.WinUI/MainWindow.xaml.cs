@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Text;
 using SimplerFileBot.Core;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
@@ -21,12 +22,13 @@ public sealed partial class MainWindow : Window
     private CancellationTokenSource? _cancellation;
     private bool _initializing = true;
     private bool _busy;
-    private NavigationView Navigation = null!;
+    private readonly Dictionary<string, Button> _navigationButtons = [];
     private Grid RenameView = null!;
     private ScrollViewer FormatsView = null!;
     private ScrollViewer MetadataView = null!;
     private ScrollViewer SettingsView = null!;
-    private InfoBar Notice = null!;
+    private Border Notice = null!;
+    private TextBlock NoticeText = null!;
     private ComboBox SourceCombo = null!;
     private ComboBox ThemeCombo = null!;
     private TextBox TitleBox = null!;
@@ -60,34 +62,9 @@ public sealed partial class MainWindow : Window
         Root.AllowDrop = true;
         Root.DragOver += Root_DragOver;
         Root.Drop += Root_Drop;
-        var diagnostic = Environment.GetEnvironmentVariable("SIMPLER_FILEBOT_DIAGNOSTIC_UI");
-        if (diagnostic == "empty") return;
-        if (diagnostic == "text")
-        {
-            Root.Children.Add(Label("Simpler FileBot diagnostic window"));
-            return;
-        }
-        if (diagnostic == "button") { Root.Children.Add(new Button { Content = "Test" }); return; }
-        if (diagnostic == "combo") { Root.Children.Add(new ComboBox { Header = "Test" }); return; }
-        if (diagnostic == "list") { Root.Children.Add(new ListView()); return; }
-        if (diagnostic == "info") { Root.Children.Add(new InfoBar { Title = "Test", IsOpen = true }); return; }
-        if (diagnostic == "navigation_empty")
-        {
-            Root.Children.Add(new NavigationView { IsSettingsVisible = false });
-            return;
-        }
-        if (diagnostic == "navigation")
-        {
-            var navigation = new NavigationView { IsSettingsVisible = false };
-            navigation.MenuItems.Add(new NavigationViewItem { Content = "Rename" });
-            Root.Children.Add(navigation);
-            return;
-        }
         BuildUi();
-        if (diagnostic == "layout") return;
-        Navigation.SelectionChanged += Navigation_SelectionChanged;
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 760));
-        if (diagnostic != "no_mica") SystemBackdrop = new MicaBackdrop();
+        SystemBackdrop = new MicaBackdrop();
         Root.RequestedTheme = _config.Settings.Theme == "Dark" ? ElementTheme.Dark : ElementTheme.Light;
         SourceCombo.SelectedIndex = Math.Max(0, Array.IndexOf(MetadataSources.All, _config.Settings.MetadataSource));
         ThemeCombo.SelectedIndex = _config.Settings.Theme == "Dark" ? 1 : 0;
@@ -129,17 +106,34 @@ public sealed partial class MainWindow : Window
 
     private void BuildUi()
     {
-        Navigation = new NavigationView { PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact,
-            IsSettingsVisible = false };
+        var shell = new Grid();
+        SetColumns(shell, Pixels(200), Star());
+        Root.Children.Add(shell);
+        var rail = new StackPanel { Spacing = 8, Padding = new Thickness(16, 24, 16, 16) };
+        rail.Children.Add(Label("Simpler FileBot", 20));
         foreach (var (title, tag) in new[] { ("Rename", "rename"), ("Formats", "formats"),
                      ("Metadata", "metadata"), ("Settings", "settings") })
-            Navigation.MenuItems.Add(new NavigationViewItem { Content = title, Tag = tag });
-        Root.Children.Add(Navigation);
+        {
+            var button = Button(title, Navigation_Click);
+            button.Tag = tag;
+            button.HorizontalAlignment = HorizontalAlignment.Stretch;
+            button.HorizontalContentAlignment = HorizontalAlignment.Left;
+            rail.Children.Add(button);
+            _navigationButtons.Add(tag, button);
+        }
+        AddAt(shell, rail, 0);
 
         var host = new Grid { Padding = new Thickness(28, 20, 28, 20) };
         SetRows(host, Auto(), Star());
-        Navigation.Content = host;
-        Notice = new InfoBar { IsOpen = false, IsClosable = true, Margin = new Thickness(0, 0, 0, 12) };
+        AddAt(shell, host, 0, 1);
+        var noticeContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        NoticeText = Label("");
+        noticeContent.Children.Add(NoticeText);
+        noticeContent.Children.Add(Button("Dismiss", (_, _) => Notice.Visibility = Visibility.Collapsed));
+        Notice = new Border { Child = noticeContent, Visibility = Visibility.Collapsed,
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
+            BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Gray),
+            Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 0, 0, 12) };
         AddAt(host, Notice, 0);
 
         RenameView = BuildRenameView();
@@ -153,6 +147,7 @@ public sealed partial class MainWindow : Window
         SettingsView = new ScrollViewer { Visibility = Visibility.Collapsed,
             Content = BuildSettingsView() };
         AddAt(host, SettingsView, 1);
+        ShowSection("rename");
     }
 
     private Grid BuildRenameView()
@@ -319,10 +314,18 @@ public sealed partial class MainWindow : Window
         return view;
     }
 
-    private void Navigation_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    private void Navigation_Click(object sender, RoutedEventArgs args)
     {
-        if (args.SelectedItem is not NavigationViewItem item) return;
-        var page = item.Tag?.ToString();
+        if (sender is Button button && button.Tag is string page) ShowSection(page);
+    }
+
+    private void ShowSection(string page)
+    {
+        foreach (var (tag, button) in _navigationButtons)
+        {
+            button.FontWeight = tag == page ? FontWeights.SemiBold : FontWeights.Normal;
+            button.Opacity = tag == page ? 1 : 0.75;
+        }
         RenameView.Visibility = page == "rename" ? Visibility.Visible : Visibility.Collapsed;
         FormatsView.Visibility = page == "formats" ? Visibility.Visible : Visibility.Collapsed;
         MetadataView.Visibility = page == "metadata" ? Visibility.Visible : Visibility.Collapsed;
@@ -607,8 +610,14 @@ public sealed partial class MainWindow : Window
     }
     private void ShowNotice(string message, InfoBarSeverity severity)
     {
-        Notice.Message = message;
-        Notice.Severity = severity;
-        Notice.IsOpen = true;
+        var prefix = severity switch
+        {
+            InfoBarSeverity.Error => "Error: ",
+            InfoBarSeverity.Warning => "Check: ",
+            InfoBarSeverity.Success => "Done: ",
+            _ => ""
+        };
+        NoticeText.Text = prefix + message;
+        Notice.Visibility = Visibility.Visible;
     }
 }
