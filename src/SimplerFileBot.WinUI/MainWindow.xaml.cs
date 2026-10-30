@@ -60,10 +60,25 @@ public sealed partial class MainWindow : Window
         Root.AllowDrop = true;
         Root.DragOver += Root_DragOver;
         Root.Drop += Root_Drop;
+        var diagnostic = Environment.GetEnvironmentVariable("SIMPLER_FILEBOT_DIAGNOSTIC_UI");
+        if (diagnostic == "empty") return;
+        if (diagnostic == "text")
+        {
+            Root.Children.Add(Label("Simpler FileBot diagnostic window"));
+            return;
+        }
+        if (diagnostic == "navigation")
+        {
+            var navigation = new NavigationView { IsSettingsVisible = false };
+            navigation.MenuItems.Add(new NavigationViewItem { Content = "Rename" });
+            Root.Children.Add(navigation);
+            return;
+        }
         BuildUi();
+        if (diagnostic == "layout") return;
         Navigation.SelectionChanged += Navigation_SelectionChanged;
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 760));
-        SystemBackdrop = new MicaBackdrop();
+        if (diagnostic != "no_mica") SystemBackdrop = new MicaBackdrop();
         Root.RequestedTheme = _config.Settings.Theme == "Dark" ? ElementTheme.Dark : ElementTheme.Light;
         SourceCombo.SelectedIndex = Math.Max(0, Array.IndexOf(MetadataSources.All, _config.Settings.MetadataSource));
         ThemeCombo.SelectedIndex = _config.Settings.Theme == "Dark" ? 1 : 0;
