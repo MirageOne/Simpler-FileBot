@@ -50,6 +50,7 @@ The script freezes the app, runs a startup smoke check, and builds these outputs
 - `dist\windows\packages\Simpler-FileBot-1.6.0-setup-x64.exe`
 
 Build one target with `-Target Portable` or `-Target Installer`. Set a numeric version with `-Version 1.6.1`.
+The script detects system-wide and per-user Inno Setup installations.
 If Inno Setup was installed in a custom location, add `-IsccPath 'C:\path\to\ISCC.exe'`.
 The existing `make_exe.cmd` is a convenience wrapper for the portable target; pass `-Python .\venv\Scripts\python.exe` when using this virtual environment.
 

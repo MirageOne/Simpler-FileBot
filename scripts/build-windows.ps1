@@ -24,7 +24,10 @@ if ($Target -ne 'Portable') {
     if (-not $IsccPath) {
         $Compiler = Get-Command ISCC.exe -ErrorAction SilentlyContinue
         if ($Compiler) { $IsccPath = $Compiler.Source }
-        foreach ($ProgramRoot in @(${env:ProgramFiles(x86)}, $env:ProgramFiles)) {
+        # Winget can install Inno Setup for the current user, outside Program Files.
+        $ProgramRoots = @(${env:ProgramFiles(x86)}, $env:ProgramFiles)
+        if ($env:LOCALAPPDATA) { $ProgramRoots += Join-Path $env:LOCALAPPDATA 'Programs' }
+        foreach ($ProgramRoot in $ProgramRoots) {
             foreach ($Release in @('Inno Setup 6', 'Inno Setup 7')) {
                 if ($ProgramRoot -and -not $IsccPath) {
                     $Candidate = Join-Path $ProgramRoot "$Release\ISCC.exe"
