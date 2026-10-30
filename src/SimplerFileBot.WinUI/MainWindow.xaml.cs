@@ -26,7 +26,12 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Title = "Simpler FileBot";
+        Root.AllowDrop = true;
+        Root.DragOver += Root_DragOver;
+        Root.Drop += Root_Drop;
         Navigation.SelectionChanged += Navigation_SelectionChanged;
+        PreviewList.ItemsSource = Rows;
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 760));
         Navigation.SelectedItem = Navigation.MenuItems[0];
         SystemBackdrop = new MicaBackdrop();
