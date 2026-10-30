@@ -1,83 +1,25 @@
-# Simpler FileBot 🗃️
-This is a batch file-renaming GUI tool for movies and tv shows.
+# Simpler FileBot
 
-`Simpler FileBot is built using PySide6 and is designed with Windows 11 in mind!`
+Simpler FileBot is a native Windows media renamer built with C#, .NET 8, WinUI 3, and the Windows App SDK. It can match movie and TV episode names with TVMaze, TheMovieDB, OMDB, or local filename metadata, then show a reviewable rename preview. The app does not require Python.
 
-*Special thanks* to [guessit](https://github.com/guessit-io/guessit) for analyzing and providing the metadata for filenames.
+## Use
 
-## Requirements
-**You might be able to skip this section if using the Executable installation option.**
+Add files, drag them into the window, or scan a folder. Choose a metadata source and select **Match metadata**. Edit any proposed filename before selecting **Rename checked**. Rows with missing metadata, invalid Windows names, or destination collisions must be resolved first. **Undo last rename** restores completed changes, including after a partial failure.
 
-- [Python 3.10 - 3.14](https://www.python.org/downloads/) - 
-  `Installation help:` [[Windows](https://www.geeksforgeeks.org/how-to-install-python-on-windows/)] [[Mac](https://www.geeksforgeeks.org/how-to-install-python-on-mac/)] [[Linux](https://www.geeksforgeeks.org/how-to-install-python-on-linux/)]
+The source you select is remembered for the next launch. TVMaze supports TV episodes; TheMovieDB and OMDB support movies and episodes and require API keys on the **Metadata** page. **Formats** controls the movie and episode filename templates. **Settings** controls the theme, folder exclusions, and filename-only analysis.
 
-  Make sure `pip` is installed and `Python` is added to your environment variables.
+The default templates are `{movie_name} ({year})` and `S{season_number}E{episode_number} - {episode_title}`. The original file extension is retained. Episode matching uses one show at a time and recognizes common `S01E02`, `1x02`, and season-folder `E02` names. Multiple episodes in one filename use the first episode number. The native parser does not use Python's `guessit` library, so review unusual release names before renaming.
 
-## Modern PySide6 UI
-<img src="docs/images/rename-light.png" width="75%">
+## Build
 
-## Light & Dark Mode
-<img src="docs/images/rename-dark.png" width="75%">
+See [Windows build instructions](docs/windows-build.md) for the Windows prerequisites and exact commands to run the app, build a portable ZIP, and build an Inno Setup installer. Open `SimplerFileBot.sln` in Visual Studio, or use the projects in `src/SimplerFileBot.Core` and `src/SimplerFileBot.WinUI`; core tests are in `tests/SimplerFileBot.Core.Tests`.
 
-## Installation
-[Download Source Code](https://github.com/MirageOne/Simpler-FileBot/releases)
+The portable package keeps settings in `data` beside the executable when `portable.flag` is present. The installer stores settings under `%LOCALAPPDATA%\Simpler FileBot`. Existing Python edition JSON settings, formats, and API keys in that folder are read by the native app.
 
-### Executable (Currently only for Windows)
+## Metadata services
 
-- Download `Simpler-FileBot.exe` from the Releases section
+The app is independent of its metadata providers. TVMaze data comes from [TVMaze](https://www.tvmaze.com/); TheMovieDB data comes from [TMDB](https://www.themoviedb.org/) and needs a [TMDB API key](https://www.themoviedb.org/settings/api); OMDB data comes from [OMDb API](https://www.omdbapi.com/) and needs an [OMDb API key](https://www.omdbapi.com/apikey.aspx).
 
-- Run the executable
+## License
 
-### Python
-
-- `pip install -r requirements.txt`
-
-- `py main.py`
-
-### Windows
-- `Run install_dependencies.bat`
-
-- `Use launcher.bat to open Simpler FileBot`
-
-## Windows builds
-
-See [Windows build instructions](docs/windows-build.md) for local setup, portable ZIPs, the Inno Setup installer, and GitHub Actions artifacts.
-
-## Rename workspace
-
-The Fluent-style interface provides an editable preview table, inline metadata matching, and light/dark themes.
-Windows supplies the native title bar; Windows 11 backdrop support is enabled when available. The UI remains built with PySide6.
-
-1. Choose **Add files**, **Add folder**, or drop media into the table. Folder imports run in the background and can be cancelled.
-2. Choose a metadata source and select **Match files**. Use **Local metadata** to work without an API connection.
-   The app remembers the last source you selected or used and restores it next time.
-3. Review the original and proposed names together. Double-click a new filename to edit it. Missing metadata, invalid names, and collisions are marked **Review** and skipped.
-4. Check the files to include, then select **Rename**. Files stay in their original folders. **Undo last rename** also supports completed changes after a partial failure.
-
-**Formats**, **Metadata**, and **Settings** are available from the navigation pane. API keys are configured on the Metadata page.
-Keyboard shortcuts: **Ctrl+O** adds files, **Ctrl+Shift+O** adds a folder, **Alt+M** matches, **Delete** removes highlighted rows, and **Ctrl+Z** undoes the last rename.
-
-## Supported Databases
-`Simpler FileBot uses the following databases/APIs but is not endorsed, certified, or otherwise approved.`
-
-<br/><br/>
-
-<img src="https://static.tvmaze.com/images/tvm-header-logo.png" alt="Alt Text" height="50">
-
-[Source](https://www.tvmaze.com/) [[Python Library](https://github.com/yakupadakli/python-tvmaze)]
-
-<br/><br/>
-
-<img src="https://www.themoviedb.org/assets/v4/logos/v2/blue_square_1-5bdc75aaebeb75dc7ae79426ddd9be3b2be1e342510f8202baf6bffa71d7f5c4.svg" alt="Alt Text" width="150">
-
-[Source](https://www.themoviedb.org/) [[Python Library](https://github.com/celiao/tmdbsimple/)] (Requires an API key at [Link](https://www.themoviedb.org/settings/api))
-
-<br/><br/>
-
-<img src="https://upload.wikimedia.org/wikipedia/commons/a/a9/Omdb-logo.png" alt="Alt Text" width="height=40">
-
-[Source](https://www.omdb.org/en/us) [[Python Library](https://github.com/dgilland/omdb.py)] (Requires an API key at [Link](https://www.omdbapi.com/apikey.aspx))
-
-<br/><br/>
-
-### `Simpler FileBot also supports matching solely using the guessit library.`
+See [LICENSE](LICENSE).

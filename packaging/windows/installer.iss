@@ -1,9 +1,9 @@
 ; Build through scripts/build-windows.ps1 with Inno Setup 6.3+.
 #ifndef AppVersion
-  #define AppVersion "1.6.0"
+  #define AppVersion "2.0.0"
 #endif
 #ifndef AppSourceDir
-  #error AppSourceDir must point to the PyInstaller application directory.
+  #error AppSourceDir must point to the dotnet publish application directory.
 #endif
 #ifndef RepoDir
   #error RepoDir must point to the repository root.

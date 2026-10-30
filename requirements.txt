@@ -1,9 +1,0 @@
-PySide6==6.10.1
-shiboken6==6.10.1
-guessit==3.8.0
-pytest==9.0.2
-pytest-qt==4.5.0
-platformdirs==4.5.1
-python-tvmaze==1.0.5
-tmdbsimple==2.9.1
-omdb==0.10.1

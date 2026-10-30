@@ -2,4 +2,7 @@
 .idea
 /dist/
 /build/
+**/bin/
+**/obj/
+.vs/
 **/__pycache__/
