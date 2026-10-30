@@ -11,6 +11,8 @@ public sealed class MetadataService(HttpClient client)
         IReadOnlyList<MediaItem> items, string source, ApiKeys keys, bool absoluteOrder, CancellationToken cancellationToken = default)
     {
         if (items.Count == 0) return [];
+        if (items.Any(item => string.IsNullOrWhiteSpace(item.Title)))
+            throw new ArgumentException("A title could not be detected. Enter a title override before matching.");
         if (items.Any(item => item.Kind != items[0].Kind)) throw new ArgumentException("Match movies and episodes in separate batches.");
         if (items[0].Kind == MediaKind.Episode && items.Select(i => i.Title).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
             throw new ArgumentException("Match one TV series at a time. Edit the series title or remove other shows.");
@@ -41,7 +43,13 @@ public sealed class MetadataService(HttpClient client)
         Func<MediaItem, CancellationToken, Task<MatchResult>> match, CancellationToken token)
     {
         var result = new List<MatchResult>(items.Count);
-        foreach (var item in items) result.Add(await match(item, token));
+        var cache = new Dictionary<(string Title, int? Year), MatchResult>();
+        foreach (var item in items)
+        {
+            var key = (item.Title.ToUpperInvariant(), item.Year);
+            if (!cache.TryGetValue(key, out var matched)) cache[key] = matched = await match(item, token);
+            result.Add(matched);
+        }
         return result;
     }
 

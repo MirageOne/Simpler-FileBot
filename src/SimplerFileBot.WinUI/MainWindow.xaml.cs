@@ -26,6 +26,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 760));
         Navigation.SelectedItem = Navigation.MenuItems[0];
         SystemBackdrop = new MicaBackdrop();
         Root.RequestedTheme = _config.Settings.Theme == "Dark" ? ElementTheme.Dark : ElementTheme.Light;
@@ -108,13 +109,15 @@ public sealed partial class MainWindow : Window
                 return result;
             }, token);
             var existing = Rows.Select(row => Path.GetFullPath(row.Item.SourcePath)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var added = 0;
             foreach (var path in files)
             {
                 if (!existing.Add(Path.GetFullPath(path))) continue;
                 Rows.Add(new PreviewRow(MediaParser.Parse(path, _config.Settings)));
+                added++;
             }
             UpdateSummary();
-            ShowNotice($"Added {Rows.Count} file(s). Choose a source and match metadata.", InfoBarSeverity.Success);
+            ShowNotice($"Added {added} file(s). Choose a source and match metadata.", InfoBarSeverity.Success);
         }
         catch (OperationCanceledException) { ShowNotice("Import canceled.", InfoBarSeverity.Informational); }
         catch (Exception error) { ShowNotice(error.Message, InfoBarSeverity.Error); }
@@ -160,8 +163,11 @@ public sealed partial class MainWindow : Window
         { ShowNotice("Resolve the status issues in checked rows before renaming.", InfoBarSeverity.Warning); return; }
         var entries = selected.Select(row => new RenameEntry(row.Item.SourcePath, row.ProposedName)).ToList();
         var outcome = RenameService.Execute(entries);
-        _lastRenames.Clear();
-        _lastRenames.AddRange(outcome.Completed);
+        if (outcome.Completed.Count > 0)
+        {
+            _lastRenames.Clear();
+            _lastRenames.AddRange(outcome.Completed);
+        }
         foreach (var move in outcome.Completed)
         {
             var row = Rows.FirstOrDefault(r => Path.GetFullPath(r.Item.SourcePath).Equals(move.From, StringComparison.OrdinalIgnoreCase));
@@ -203,7 +209,7 @@ public sealed partial class MainWindow : Window
         RefreshStatuses();
     }
 
-    private void Clear_Click(object sender, RoutedEventArgs e) { Rows.Clear(); _lastRenames.Clear(); UndoButton.IsEnabled = false; UpdateSummary(); }
+    private void Clear_Click(object sender, RoutedEventArgs e) { Rows.Clear(); UpdateSummary(); }
     private void Cancel_Click(object sender, RoutedEventArgs e) => _cancellation?.Cancel();
 
     private void ProposedName_TextChanged(object sender, TextChangedEventArgs e)

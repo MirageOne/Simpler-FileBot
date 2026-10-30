@@ -28,6 +28,8 @@ public sealed class CoreTests
         var name = FormatService.BuildName(item, new MatchResult("Example", null, null), new AppFormats());
         Assert.Contains("{None}", name);
         Assert.NotNull(FormatService.ValidateFileName(name));
+        Assert.NotNull(FormatService.ValidateFileName("CON.mkv"));
+        Assert.NotNull(FormatService.ValidateFileName("episode: title.mkv"));
         Assert.Throws<ArgumentException>(() => FormatService.Preview("{unknown}", MediaKind.Movie));
         Assert.Equal("Interstellar (2014).mkv", FormatService.Preview("{movie_name} ({year})", MediaKind.Movie));
     }

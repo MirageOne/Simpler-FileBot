@@ -17,10 +17,11 @@ public static class RenameService
         var destinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in entries)
         {
+            var error = FormatService.ValidateFileName(entry.NewName);
+            if (error is not null) { errors[entry] = error; continue; }
             var source = Path.GetFullPath(entry.SourcePath);
             var destination = Path.GetFullPath(entry.DestinationPath);
-            var error = FormatService.ValidateFileName(entry.NewName);
-            if (error is null && !File.Exists(source)) error = "The source file no longer exists.";
+            if (!File.Exists(source)) error = "The source file no longer exists.";
             if (error is null && !sources.Add(source)) error = "The source appears more than once.";
             if (error is null && !destinations.Add(destination)) error = "Another row has this destination.";
             if (error is null && !source.Equals(destination, StringComparison.OrdinalIgnoreCase) &&

@@ -35,9 +35,10 @@ public static class FormatService
     public static string? ValidateFileName(string name)
     {
         if (string.IsNullOrWhiteSpace(name) || name is "." or "..") return "The filename is empty.";
+        if (name.Length > 255) return "The filename is longer than 255 characters.";
         if (name.IndexOfAny(InvalidWindowsFileChars) >= 0 || name.Any(c => c < 32)) return "The filename contains a Windows reserved character.";
         if (name.EndsWith('.') || name.EndsWith(' ')) return "Windows filenames cannot end in a space or period.";
-        var stem = Path.GetFileNameWithoutExtension(name).TrimEnd(' ', '.');
+        var stem = name.Split('.', 2)[0].TrimEnd(' ', '.');
         if (new[] { "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" }.Contains(stem, StringComparer.OrdinalIgnoreCase))
             return "The filename uses a reserved Windows device name.";
         if (name.Contains("{None}", StringComparison.Ordinal)) return "Metadata is missing. Edit the name or change the match.";
