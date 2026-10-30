@@ -21,6 +21,34 @@ public sealed partial class MainWindow : Window
     private CancellationTokenSource? _cancellation;
     private bool _initializing = true;
     private bool _busy;
+    private NavigationView Navigation = null!;
+    private Grid RenameView = null!;
+    private ScrollViewer FormatsView = null!;
+    private ScrollViewer MetadataView = null!;
+    private ScrollViewer SettingsView = null!;
+    private InfoBar Notice = null!;
+    private ComboBox SourceCombo = null!;
+    private ComboBox ThemeCombo = null!;
+    private TextBox TitleBox = null!;
+    private TextBox YearBox = null!;
+    private TextBox MovieFormatBox = null!;
+    private TextBox SeriesFormatBox = null!;
+    private TextBox ExcludedFolderBox = null!;
+    private TextBlock MovieExample = null!;
+    private TextBlock SeriesExample = null!;
+    private TextBlock SummaryText = null!;
+    private PasswordBox TmdbKeyBox = null!;
+    private PasswordBox OmdbKeyBox = null!;
+    private ToggleSwitch FilenameOnlySwitch = null!;
+    private CheckBox AbsoluteCheck = null!;
+    private Button CancelButton = null!;
+    private Button MatchButton = null!;
+    private Button RenameButton = null!;
+    private Button UndoButton = null!;
+    private ProgressRing BusyRing = null!;
+    private ListView PreviewList = null!;
+    private ListView ExcludedList = null!;
+    private readonly Dictionary<PreviewRow, Grid> _rowViews = [];
     public ObservableCollection<PreviewRow> Rows { get; } = [];
 
     public MainWindow()
@@ -30,8 +58,8 @@ public sealed partial class MainWindow : Window
         Root.AllowDrop = true;
         Root.DragOver += Root_DragOver;
         Root.Drop += Root_Drop;
+        BuildUi();
         Navigation.SelectionChanged += Navigation_SelectionChanged;
-        PreviewList.ItemsSource = Rows;
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 760));
         Navigation.SelectedItem = Navigation.MenuItems[0];
         SystemBackdrop = new MicaBackdrop();
@@ -46,6 +74,224 @@ public sealed partial class MainWindow : Window
         RefreshExcluded();
         RefreshExamples();
         _initializing = false;
+    }
+
+    private static GridLength Pixels(double size) => new(size, GridUnitType.Pixel);
+    private static GridLength Star(double weight = 1) => new(weight, GridUnitType.Star);
+    private static GridLength Auto() => new(1, GridUnitType.Auto);
+    private static void SetRows(Grid grid, params GridLength[] heights)
+    {
+        foreach (var height in heights) grid.RowDefinitions.Add(new RowDefinition { Height = height });
+    }
+    private static void SetColumns(Grid grid, params GridLength[] widths)
+    {
+        foreach (var width in widths) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = width });
+    }
+    private static void AddAt(Grid grid, UIElement child, int row, int column = 0)
+    {
+        Grid.SetRow(child, row);
+        Grid.SetColumn(child, column);
+        grid.Children.Add(child);
+    }
+    private static TextBlock Label(string text, double size = 14) => new()
+    { Text = text, FontSize = size, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+    private static Button Button(string text, RoutedEventHandler handler)
+    {
+        var button = new Button { Content = text };
+        button.Click += handler;
+        return button;
+    }
+
+    private void BuildUi()
+    {
+        Navigation = new NavigationView { PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact,
+            IsSettingsVisible = false };
+        foreach (var (title, tag) in new[] { ("Rename", "rename"), ("Formats", "formats"),
+                     ("Metadata", "metadata"), ("Settings", "settings") })
+            Navigation.MenuItems.Add(new NavigationViewItem { Content = title, Tag = tag });
+        Root.Children.Add(Navigation);
+
+        var host = new Grid { Padding = new Thickness(28, 20, 28, 20) };
+        SetRows(host, Auto(), Star());
+        Navigation.Content = host;
+        Notice = new InfoBar { IsOpen = false, IsClosable = true, Margin = new Thickness(0, 0, 0, 12) };
+        AddAt(host, Notice, 0);
+
+        RenameView = BuildRenameView();
+        AddAt(host, RenameView, 1);
+        FormatsView = new ScrollViewer { Visibility = Visibility.Collapsed,
+            Content = BuildFormatsView() };
+        AddAt(host, FormatsView, 1);
+        MetadataView = new ScrollViewer { Visibility = Visibility.Collapsed,
+            Content = BuildMetadataView() };
+        AddAt(host, MetadataView, 1);
+        SettingsView = new ScrollViewer { Visibility = Visibility.Collapsed,
+            Content = BuildSettingsView() };
+        AddAt(host, SettingsView, 1);
+    }
+
+    private Grid BuildRenameView()
+    {
+        var page = new Grid { RowSpacing = 16 };
+        SetRows(page, Auto(), Auto(), Auto(), Auto(), Star(), Auto());
+        var heading = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        heading.Children.Add(Label("Rename", 28));
+        heading.Children.Add(Label("Add media, match titles, review every destination, then rename."));
+        AddAt(page, heading, 0);
+
+        var addCommands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        addCommands.Children.Add(Button("Add files", AddFiles_Click));
+        addCommands.Children.Add(Button("Add folder", AddFolder_Click));
+        addCommands.Children.Add(Button("Remove checked", RemoveChecked_Click));
+        addCommands.Children.Add(Button("Clear", Clear_Click));
+        CancelButton = Button("Cancel", Cancel_Click);
+        CancelButton.IsEnabled = false;
+        addCommands.Children.Add(CancelButton);
+        BusyRing = new ProgressRing { Width = 28, Height = 28, IsActive = false };
+        addCommands.Children.Add(BusyRing);
+        AddAt(page, addCommands, 1);
+
+        var sourceOptions = new Grid { ColumnSpacing = 12 };
+        SetColumns(sourceOptions, Star(2), Star(2), Star());
+        SourceCombo = new ComboBox { Header = "Metadata source", HorizontalAlignment = HorizontalAlignment.Stretch };
+        foreach (var source in MetadataSources.All) SourceCombo.Items.Add(new ComboBoxItem { Content = source });
+        SourceCombo.SelectionChanged += SourceCombo_SelectionChanged;
+        AddAt(sourceOptions, SourceCombo, 0);
+        TitleBox = new TextBox { Header = "Title override (optional)", PlaceholderText = "Use detected title" };
+        AddAt(sourceOptions, TitleBox, 0, 1);
+        YearBox = new TextBox { Header = "Year override (optional)", PlaceholderText = "Auto" };
+        AddAt(sourceOptions, YearBox, 0, 2);
+        AddAt(page, sourceOptions, 2);
+
+        var renameCommands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        AbsoluteCheck = new CheckBox { Content = "Absolute TV episode order" };
+        renameCommands.Children.Add(AbsoluteCheck);
+        MatchButton = Button("Match metadata", Match_Click);
+        renameCommands.Children.Add(MatchButton);
+        RenameButton = Button("Rename checked", Rename_Click);
+        renameCommands.Children.Add(RenameButton);
+        UndoButton = Button("Undo last rename", Undo_Click);
+        UndoButton.IsEnabled = false;
+        renameCommands.Children.Add(UndoButton);
+        AddAt(page, renameCommands, 3);
+
+        var preview = new Grid { RowSpacing = 8 };
+        SetRows(preview, Auto(), Star());
+        var headings = new Grid { Padding = new Thickness(14, 0, 14, 0), ColumnSpacing = 12 };
+        SetColumns(headings, Pixels(44), Star(2), Star(2), Pixels(160));
+        AddAt(headings, Label("ORIGINAL"), 0, 1);
+        AddAt(headings, Label("NEW NAME"), 0, 2);
+        AddAt(headings, Label("STATUS"), 0, 3);
+        AddAt(preview, headings, 0);
+        PreviewList = new ListView { SelectionMode = ListViewSelectionMode.None };
+        AddAt(preview, PreviewList, 1);
+        AddAt(page, preview, 4);
+        SummaryText = Label("No files added");
+        SummaryText.Opacity = 0.7;
+        AddAt(page, SummaryText, 5);
+        return page;
+    }
+
+    private StackPanel PageStack(string title)
+    {
+        var stack = new StackPanel { Spacing = 16, MaxWidth = 720,
+            HorizontalAlignment = HorizontalAlignment.Left };
+        stack.Children.Add(Label(title, 28));
+        return stack;
+    }
+    private StackPanel BuildFormatsView()
+    {
+        var stack = PageStack("Formats");
+        stack.Children.Add(Label("Choose filenames using the placeholders below. Extensions are retained automatically."));
+        MovieFormatBox = new TextBox { Header = "Movie format" };
+        MovieFormatBox.TextChanged += Format_TextChanged;
+        stack.Children.Add(MovieFormatBox);
+        stack.Children.Add(Label("{movie_name}  {year}"));
+        MovieExample = Label("");
+        stack.Children.Add(MovieExample);
+        SeriesFormatBox = new TextBox { Header = "Series format" };
+        SeriesFormatBox.TextChanged += Format_TextChanged;
+        stack.Children.Add(SeriesFormatBox);
+        stack.Children.Add(Label("{series_name}  {year}  {season_number}  {episode_number}  {episode_title}"));
+        SeriesExample = Label("");
+        stack.Children.Add(SeriesExample);
+        stack.Children.Add(Button("Save formats", SaveFormats_Click));
+        return stack;
+    }
+    private StackPanel BuildMetadataView()
+    {
+        var stack = PageStack("Metadata");
+        stack.Children.Add(Label("TVMaze and local matching need no key. TheMovieDB and OMDB keys are stored on this PC."));
+        TmdbKeyBox = new PasswordBox { Header = "TheMovieDB API key" };
+        stack.Children.Add(TmdbKeyBox);
+        OmdbKeyBox = new PasswordBox { Header = "OMDB API key" };
+        stack.Children.Add(OmdbKeyBox);
+        stack.Children.Add(Button("Save API keys", SaveKeys_Click));
+        return stack;
+    }
+    private StackPanel BuildSettingsView()
+    {
+        var stack = PageStack("Settings");
+        ThemeCombo = new ComboBox { Header = "Theme" };
+        ThemeCombo.Items.Add(new ComboBoxItem { Content = "Light" });
+        ThemeCombo.Items.Add(new ComboBoxItem { Content = "Dark" });
+        ThemeCombo.SelectionChanged += ThemeCombo_SelectionChanged;
+        stack.Children.Add(ThemeCombo);
+        FilenameOnlySwitch = new ToggleSwitch { Header = "Analyze filenames only" };
+        FilenameOnlySwitch.Toggled += FilenameOnlySwitch_Toggled;
+        stack.Children.Add(FilenameOnlySwitch);
+        stack.Children.Add(Label("Excluded folders are ignored when finding titles and years from parent folders."));
+        var folderOptions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        ExcludedFolderBox = new TextBox { PlaceholderText = @"C:\Media\Unsorted", Width = 440 };
+        folderOptions.Children.Add(ExcludedFolderBox);
+        folderOptions.Children.Add(Button("Add excluded folder", AddExcluded_Click));
+        stack.Children.Add(folderOptions);
+        ExcludedList = new ListView { Height = 150, SelectionMode = ListViewSelectionMode.Single };
+        stack.Children.Add(ExcludedList);
+        stack.Children.Add(Button("Remove selected folder", RemoveExcluded_Click));
+        stack.Children.Add(Button("Open settings folder", OpenSettings_Click));
+        return stack;
+    }
+
+    private void RebuildPreview()
+    {
+        var remaining = Rows.ToHashSet();
+        foreach (var row in _rowViews.Keys.Where(row => !remaining.Contains(row)).ToList()) _rowViews.Remove(row);
+        PreviewList.Items.Clear();
+        foreach (var row in Rows)
+        {
+            if (!_rowViews.TryGetValue(row, out var view)) _rowViews[row] = view = BuildPreviewRow(row);
+            PreviewList.Items.Add(view);
+        }
+    }
+
+    private Grid BuildPreviewRow(PreviewRow row)
+    {
+        var view = new Grid { Padding = new Thickness(8), ColumnSpacing = 12, MinHeight = 52 };
+        SetColumns(view, Pixels(44), Star(2), Star(2), Pixels(160));
+        var check = new CheckBox { IsChecked = row.IsSelected, Tag = row,
+            VerticalAlignment = VerticalAlignment.Center };
+        check.Checked += RowSelection_Changed;
+        check.Unchecked += RowSelection_Changed;
+        AddAt(view, check, 0);
+        var original = Label(row.OriginalName);
+        original.TextTrimming = TextTrimming.CharacterEllipsis;
+        AddAt(view, original, 0, 1);
+        var proposed = new TextBox { Text = row.ProposedName, Tag = row,
+            VerticalAlignment = VerticalAlignment.Center };
+        proposed.TextChanged += ProposedName_TextChanged;
+        AddAt(view, proposed, 0, 2);
+        var status = Label(row.Status);
+        AddAt(view, status, 0, 3);
+        row.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(PreviewRow.OriginalName)) original.Text = row.OriginalName;
+            if (args.PropertyName == nameof(PreviewRow.ProposedName) && proposed.Text != row.ProposedName)
+                proposed.Text = row.ProposedName;
+            if (args.PropertyName == nameof(PreviewRow.Status)) status.Text = row.Status;
+            if (args.PropertyName == nameof(PreviewRow.IsSelected)) check.IsChecked = row.IsSelected;
+        };
+        return view;
     }
 
     private void Navigation_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
@@ -122,6 +368,7 @@ public sealed partial class MainWindow : Window
                 Rows.Add(new PreviewRow(MediaParser.Parse(path, _config.Settings)));
                 added++;
             }
+            RebuildPreview();
             UpdateSummary();
             ShowNotice($"Added {added} file(s). Choose a source and match metadata.", InfoBarSeverity.Success);
         }
@@ -212,10 +459,11 @@ public sealed partial class MainWindow : Window
     private void RemoveChecked_Click(object sender, RoutedEventArgs e)
     {
         foreach (var row in Rows.Where(r => r.IsSelected).ToList()) Rows.Remove(row);
+        RebuildPreview();
         RefreshStatuses();
     }
 
-    private void Clear_Click(object sender, RoutedEventArgs e) { Rows.Clear(); UpdateSummary(); }
+    private void Clear_Click(object sender, RoutedEventArgs e) { Rows.Clear(); RebuildPreview(); UpdateSummary(); }
     private void Cancel_Click(object sender, RoutedEventArgs e) => _cancellation?.Cancel();
 
     private void ProposedName_TextChanged(object sender, TextChangedEventArgs e)
@@ -223,7 +471,11 @@ public sealed partial class MainWindow : Window
         if (sender is TextBox { Tag: PreviewRow row } box && row.ProposedName != box.Text)
         { row.ProposedName = box.Text; RefreshStatuses(); }
     }
-    private void RowSelection_Changed(object sender, RoutedEventArgs e) => RefreshStatuses();
+    private void RowSelection_Changed(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox { Tag: PreviewRow row } check) row.IsSelected = check.IsChecked == true;
+        RefreshStatuses();
+    }
 
     private void RefreshStatuses()
     {
