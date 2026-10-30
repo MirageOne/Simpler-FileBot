@@ -49,11 +49,13 @@ public sealed partial class MainWindow : Window
     private ListView PreviewList = null!;
     private ListView ExcludedList = null!;
     private readonly Dictionary<PreviewRow, Grid> _rowViews = [];
+    private readonly Grid Root;
     public ObservableCollection<PreviewRow> Rows { get; } = [];
 
     public MainWindow()
     {
-        InitializeComponent();
+        Root = new Grid();
+        Content = Root;
         Title = "Simpler FileBot";
         Root.AllowDrop = true;
         Root.DragOver += Root_DragOver;
