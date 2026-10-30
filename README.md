@@ -1,6 +1,6 @@
 # Simpler FileBot
 
-Simpler FileBot is a native Windows media renamer built with C#, .NET 8, WinUI 3, and the Windows App SDK. It can match movie and TV episode names with TVMaze, TheMovieDB, OMDB, or local filename metadata, then show a reviewable rename preview. The app does not require Python.
+Simpler FileBot is a native Windows media renamer built with C#, .NET 10, WinUI 3, and the Windows App SDK. It can match movie and TV episode names with TVMaze, TheMovieDB, OMDB, or local filename metadata, then show a reviewable rename preview. The app does not require Python.
 
 ## Use
 

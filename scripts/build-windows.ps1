@@ -3,7 +3,7 @@ param(
     [ValidateSet('All', 'Portable', 'Installer')]
     [string]$Target = 'All',
     [ValidatePattern('^\d+\.\d+\.\d+$')]
-    [string]$Version = '2.0.0',
+    [string]$Version = '2.1.0',
     [string]$DotNet = 'dotnet',
     [string]$IsccPath = ''
 )
@@ -20,7 +20,7 @@ $Packages = Join-Path $Dist 'packages'
 $App = Join-Path $Dist 'Simpler-FileBot'
 
 & $DotNet --version
-if ($LASTEXITCODE -ne 0) { throw 'Install .NET SDK 8 x64 and make dotnet available on PATH.' }
+if ($LASTEXITCODE -ne 0) { throw 'Install .NET SDK 10 x64 and make dotnet available on PATH.' }
 
 if ($Target -ne 'Portable') {
     if (-not $IsccPath) {
