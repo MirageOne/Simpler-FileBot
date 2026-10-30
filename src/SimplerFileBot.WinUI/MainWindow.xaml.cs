@@ -47,7 +47,7 @@ public sealed partial class MainWindow : Window
     private Button MatchButton = null!;
     private Button RenameButton = null!;
     private Button UndoButton = null!;
-    private ProgressRing BusyRing = null!;
+    private TextBlock BusyStatus = null!;
     private ListView PreviewList = null!;
     private ListView ExcludedList = null!;
     private readonly Dictionary<PreviewRow, Grid> _rowViews = [];
@@ -62,35 +62,9 @@ public sealed partial class MainWindow : Window
         Root.AllowDrop = true;
         Root.DragOver += Root_DragOver;
         Root.Drop += Root_Drop;
-        var diagnostic = Environment.GetEnvironmentVariable("SIMPLER_FILEBOT_DIAGNOSTIC_UI");
-        if (diagnostic == "check") { Root.Children.Add(new CheckBox { Content = "Test" }); return; }
-        if (diagnostic == "toggle") { Root.Children.Add(new ToggleSwitch { Header = "Test" }); return; }
-        if (diagnostic == "progress") { Root.Children.Add(new ProgressRing { IsActive = false }); return; }
-        if (diagnostic == "password") { Root.Children.Add(new PasswordBox { Header = "Test" }); return; }
-        if (diagnostic == "textbox") { Root.Children.Add(new TextBox { Header = "Test" }); return; }
-        if (diagnostic == "scroll") { Root.Children.Add(new ScrollViewer { Content = Label("Test") }); return; }
-        if (diagnostic == "border")
-        {
-            Root.Children.Add(new Border { BorderThickness = new Thickness(1),
-                BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Gray), Child = Label("Test") });
-            return;
-        }
-        if (diagnostic == "combo_item")
-        {
-            var combo = new ComboBox { Header = "Test" };
-            combo.Items.Add(new ComboBoxItem { Content = "Item" });
-            Root.Children.Add(combo);
-            return;
-        }
-        if (diagnostic == "mica")
-        {
-            Root.Children.Add(Label("Test"));
-            SystemBackdrop = new MicaBackdrop();
-            return;
-        }
         BuildUi();
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 760));
-        if (diagnostic != "no_mica") SystemBackdrop = new MicaBackdrop();
+        SystemBackdrop = new MicaBackdrop();
         Root.RequestedTheme = _config.Settings.Theme == "Dark" ? ElementTheme.Dark : ElementTheme.Light;
         SourceCombo.SelectedIndex = Math.Max(0, Array.IndexOf(MetadataSources.All, _config.Settings.MetadataSource));
         ThemeCombo.SelectedIndex = _config.Settings.Theme == "Dark" ? 1 : 0;
@@ -193,8 +167,9 @@ public sealed partial class MainWindow : Window
         CancelButton = Button("Cancel", Cancel_Click);
         CancelButton.IsEnabled = false;
         addCommands.Children.Add(CancelButton);
-        BusyRing = new ProgressRing { Width = 28, Height = 28, IsActive = false };
-        addCommands.Children.Add(BusyRing);
+        BusyStatus = Label("Working…");
+        BusyStatus.Visibility = Visibility.Collapsed;
+        addCommands.Children.Add(BusyStatus);
         AddAt(page, addCommands, 1);
 
         var sourceOptions = new Grid { ColumnSpacing = 12 };
@@ -629,7 +604,7 @@ public sealed partial class MainWindow : Window
     private void SetBusy(bool value)
     {
         _busy = value;
-        BusyRing.IsActive = value;
+        BusyStatus.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
         CancelButton.IsEnabled = value;
         MatchButton.IsEnabled = !value;
         RenameButton.IsEnabled = !value;

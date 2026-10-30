@@ -15,7 +15,11 @@ $Process = $null
 try {
     $Process = Start-Process -FilePath $Executable -WorkingDirectory $Directory -PassThru
     if (-not $Process.WaitForExit($WaitSeconds * 1000)) {
-        Write-Host "Portable app stayed open for $WaitSeconds seconds."
+        $Process.Refresh()
+        if ($Process.MainWindowHandle -eq [IntPtr]::Zero) {
+            throw 'Portable app stayed running but did not create a main window.'
+        }
+        Write-Host "Portable app displayed a window and stayed open for $WaitSeconds seconds."
         return
     }
 
