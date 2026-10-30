@@ -4,8 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Simpler FileBot">
     <Grid x:Name="Root" AllowDrop="True" DragOver="Root_DragOver" Drop="Root_Drop">
-        <NavigationView x:Name="Navigation" PaneDisplayMode="LeftCompact" IsSettingsVisible="False"
-                        SelectionChanged="Navigation_SelectionChanged">
+        <NavigationView x:Name="Navigation" PaneDisplayMode="LeftCompact" IsSettingsVisible="False">
             <NavigationView.MenuItems>
                 <NavigationViewItem Content="Rename" Tag="rename" Icon="Rename" />
                 <NavigationViewItem Content="Formats" Tag="formats" Icon="Edit" />
@@ -30,9 +29,9 @@
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <Image Source="Assets/AppLogo.png" Width="40" Height="40" />
                         <StackPanel Spacing="4">
-                            <TextBlock Text="Rename" Style="{StaticResource TitleTextBlockStyle}" />
+                            <TextBlock Text="Rename" FontSize="28" FontWeight="SemiBold" />
                             <TextBlock Text="Add media, match titles, review every destination, then rename."
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                       Opacity="0.7" TextWrapping="Wrap" />
                         </StackPanel>
                     </StackPanel>
                     <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
@@ -61,7 +60,7 @@
                     </Grid>
                     <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                         <CheckBox x:Name="AbsoluteCheck" Content="Absolute TV episode order" />
-                        <Button x:Name="MatchButton" Content="Match metadata" Click="Match_Click" Style="{StaticResource AccentButtonStyle}" />
+                        <Button x:Name="MatchButton" Content="Match metadata" Click="Match_Click" />
                         <Button x:Name="RenameButton" Content="Rename checked" Click="Rename_Click" />
                         <Button x:Name="UndoButton" Content="Undo last rename" Click="Undo_Click" IsEnabled="False" />
                     </StackPanel>
@@ -104,12 +103,12 @@
                             </ListView.ItemTemplate>
                         </ListView>
                     </Grid>
-                    <TextBlock x:Name="SummaryText" Grid.Row="5" Text="No files added" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock x:Name="SummaryText" Grid.Row="5" Text="No files added" Opacity="0.7" />
                 </Grid>
 
                 <ScrollViewer x:Name="FormatsView" Grid.Row="1" Visibility="Collapsed">
                     <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Left">
-                        <TextBlock Text="Formats" Style="{StaticResource TitleTextBlockStyle}" />
+                        <TextBlock Text="Formats" FontSize="28" FontWeight="SemiBold" />
                         <TextBlock Text="Choose filenames using the placeholders below. Extensions are retained automatically." TextWrapping="Wrap" />
                         <TextBox x:Name="MovieFormatBox" Header="Movie format" TextChanged="Format_TextChanged" />
                         <TextBlock Text="{}{movie_name}  {year}" />
@@ -117,23 +116,23 @@
                         <TextBox x:Name="SeriesFormatBox" Header="Series format" TextChanged="Format_TextChanged" />
                         <TextBlock Text="{}{series_name}  {year}  {season_number}  {episode_number}  {episode_title}" TextWrapping="Wrap" />
                         <TextBlock x:Name="SeriesExample" />
-                        <Button Content="Save formats" Click="SaveFormats_Click" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" />
+                        <Button Content="Save formats" Click="SaveFormats_Click" HorizontalAlignment="Left" />
                     </StackPanel>
                 </ScrollViewer>
 
                 <ScrollViewer x:Name="MetadataView" Grid.Row="1" Visibility="Collapsed">
                     <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Left">
-                        <TextBlock Text="Metadata" Style="{StaticResource TitleTextBlockStyle}" />
+                        <TextBlock Text="Metadata" FontSize="28" FontWeight="SemiBold" />
                         <TextBlock Text="TVMaze and local matching need no key. TheMovieDB and OMDB keys are stored on this PC." TextWrapping="Wrap" />
                         <PasswordBox x:Name="TmdbKeyBox" Header="TheMovieDB API key" />
                         <PasswordBox x:Name="OmdbKeyBox" Header="OMDB API key" />
-                        <Button Content="Save API keys" Click="SaveKeys_Click" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" />
+                        <Button Content="Save API keys" Click="SaveKeys_Click" HorizontalAlignment="Left" />
                     </StackPanel>
                 </ScrollViewer>
 
                 <ScrollViewer x:Name="SettingsView" Grid.Row="1" Visibility="Collapsed">
                     <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Left">
-                        <TextBlock Text="Settings" Style="{StaticResource TitleTextBlockStyle}" />
+                        <TextBlock Text="Settings" FontSize="28" FontWeight="SemiBold" />
                         <ComboBox x:Name="ThemeCombo" Header="Theme" SelectionChanged="ThemeCombo_SelectionChanged">
                             <ComboBoxItem Content="Light" />
                             <ComboBoxItem Content="Dark" />

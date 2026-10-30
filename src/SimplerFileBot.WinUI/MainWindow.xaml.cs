@@ -26,6 +26,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Navigation.SelectionChanged += Navigation_SelectionChanged;
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 760));
         Navigation.SelectedItem = Navigation.MenuItems[0];
         SystemBackdrop = new MicaBackdrop();

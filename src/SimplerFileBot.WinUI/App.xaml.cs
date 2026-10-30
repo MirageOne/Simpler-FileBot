@@ -31,14 +31,17 @@ public partial class App : Application
             var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Simpler FileBot");
             Directory.CreateDirectory(directory);
             var path = Path.Combine(directory, "startup-error.log");
-            File.WriteAllText(path, error.ToString());
+            File.WriteAllText(path, $"HRESULT: 0x{error.HResult:X8}{Environment.NewLine}{error}");
             message += $" Details were saved to {path}.";
         }
         catch { message += $" {error.Message}"; }
         if (Environment.GetEnvironmentVariable("CI") != "true")
-            MessageBoxW(0, message, "Simpler FileBot", 0x10);
+        {
+            try { MessageBoxW(0, message, "Simpler FileBot", 0x10); }
+            catch { /* Preserve the original startup exception. */ }
+        }
     }
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    [DllImport("user32.dll", EntryPoint = "MessageBoxW", ExactSpelling = true, CharSet = CharSet.Unicode)]
     private static extern int MessageBoxW(nint window, string text, string caption, uint type);
 }
