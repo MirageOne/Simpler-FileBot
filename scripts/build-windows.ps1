@@ -51,7 +51,7 @@ try {
     if (Test-Path -LiteralPath $PreviousPublish) { Remove-Item -LiteralPath $PreviousPublish -Recurse -Force }
     if (Test-Path -LiteralPath $App) { Remove-Item -LiteralPath $App -Recurse -Force }
     & $DotNet publish $Project -c Release -r win-x64 --self-contained true `
-        -p:WindowsAppSDKSelfContained=true -o $App
+        -p:WindowsAppSDKSelfContained=true "-p:Version=$Version" -o $App
     if ($LASTEXITCODE -ne 0) { throw 'WinUI 3 publish failed.' }
     $Executable = Join-Path $App 'Simpler-FileBot.exe'
     if (-not (Test-Path -LiteralPath $Executable)) { throw 'Application executable was not produced.' }

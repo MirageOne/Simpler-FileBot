@@ -79,7 +79,7 @@ Outputs are placed in `dist\windows\packages`:
 | Portable | `Simpler-FileBot-2.1.4-portable-x64.exe` | Put this single file in a writable folder and run it directly. |
 | Installer | `Simpler-FileBot-2.1.4-setup-x64.exe` | Run the installer, then launch from the Start menu. |
 
-The portable download is one EXE. It creates a `data` folder beside itself for settings, formats, and API keys; remove `data` before sharing a portable copy you used. It unpacks its native runtime into a temporary folder when launched and cleans that folder after the app closes. The installer defaults to `%LOCALAPPDATA%\Programs\Simpler FileBot` and stores user data in `%LOCALAPPDATA%\Simpler FileBot`. The native app reads the existing Python edition JSON files from that location. Both packages include the required .NET runtime and Windows App SDK components; users need no Python or separate .NET install.
+The portable download is one EXE. It creates a `data` folder beside itself for settings, formats, and API keys; remove `data` before sharing a portable copy you used. Startup can take longer while it unpacks its native runtime into a temporary folder; that folder is cleaned after the app closes. The installer defaults to `%LOCALAPPDATA%\Programs\Simpler FileBot` and stores user data in `%LOCALAPPDATA%\Simpler FileBot`. The native app reads the existing Python edition JSON files from that location. Both packages include the required .NET runtime and Windows App SDK components; users need no Python or separate .NET install.
 
 The packages are unsigned. Windows may show a SmartScreen warning until you sign a release with your own Authenticode certificate.
 

@@ -64,5 +64,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Simpler-FileBot-WinUI3-x64
-          path: dist/windows/packages/*
+          path: dist/windows/packages/*.exe
           if-no-files-found: error
