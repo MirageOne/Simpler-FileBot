@@ -46,6 +46,7 @@ Push-Location $Root
 try {
     & $DotNet test $Tests -c Release
     if ($LASTEXITCODE -ne 0) { throw '.NET tests failed.' }
+    if (Test-Path -LiteralPath $App) { Remove-Item -LiteralPath $App -Recurse -Force }
     & $DotNet publish $Project -c Release -r win-x64 --self-contained true `
         -p:WindowsAppSDKSelfContained=true -o $App
     if ($LASTEXITCODE -ne 0) { throw 'WinUI 3 publish failed.' }
