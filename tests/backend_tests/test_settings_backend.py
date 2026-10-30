@@ -5,7 +5,8 @@ from backend import settings_backend
 from backend.json_config import JSONConfig
 from backend.settings_backend import (retrieve_theme_from_settings, save_new_theme_to_settings,
                                       retrieve_excluded_folders, add_excluded_folder, remove_excluded_folder,
-                                      retrieve_filename_analysis_only_flag, set_filename_analysis_only_flag)
+                                      retrieve_filename_analysis_only_flag, set_filename_analysis_only_flag,
+                                      retrieve_metadata_source, save_metadata_source)
 
 
 # pylint: disable=unused-argument, redefined-outer-name
@@ -76,3 +77,16 @@ def test_remove_excluded_folder_deletes_successfully(redirect_settings_file_path
     remove_excluded_folder(test_folder)
 
     assert len(retrieve_excluded_folders()) == 0
+
+
+def test_metadata_source_is_saved_and_restored(redirect_settings_file_path_to_temp_file):
+    assert retrieve_metadata_source() == "TVMaze"  # Older settings files have no source key.
+    save_metadata_source("Local metadata")
+    assert retrieve_metadata_source() == "Local metadata"
+
+
+def test_invalid_metadata_source_falls_back_safely(redirect_settings_file_path_to_temp_file):
+    settings_backend.ensure().set("metadata_source", "Retired provider")
+    assert retrieve_metadata_source() == "TVMaze"
+    with pytest.raises(ValueError):
+        save_metadata_source("Retired provider")

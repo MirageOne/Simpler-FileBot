@@ -4,6 +4,7 @@ from backend.json_config import JSONConfig
 
 # Lazy created since Qt.ColorScheme does not work until after app is fully built.
 _settings_json_config: JSONConfig | None = None
+METADATA_SOURCES = ("TVMaze", "TheMovieDB", "OMDB", "Local metadata")
 
 
 # pylint: disable=global-statement
@@ -19,7 +20,8 @@ def ensure() -> JSONConfig:
                           if QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Unknown
                           else QGuiApplication.styleHints().colorScheme().name),
                 "excluded_folders": [],
-                "use_only_filename_for_analysis": False
+                "use_only_filename_for_analysis": False,
+                "metadata_source": "TVMaze"
             }
         )
 
@@ -56,6 +58,18 @@ def retrieve_filename_analysis_only_flag() -> bool:
 
 def set_filename_analysis_only_flag(new_value: bool):
     return ensure().set("use_only_filename_for_analysis", new_value)
+
+
+def retrieve_metadata_source() -> str:
+    """Return the last source selected or used, including for older settings files."""
+    source = ensure().get("metadata_source", "TVMaze")
+    return source if source in METADATA_SOURCES else "TVMaze"
+
+
+def save_metadata_source(source: str):
+    if source not in METADATA_SOURCES:
+        raise ValueError(f"Unknown metadata source: {source}")
+    ensure().set("metadata_source", source)
 
 
 def delete_and_recreate_settings_file():

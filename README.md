@@ -50,6 +50,7 @@ Windows supplies the native title bar; Windows 11 backdrop support is enabled wh
 
 1. Choose **Add files**, **Add folder**, or drop media into the table. Folder imports run in the background and can be cancelled.
 2. Choose a metadata source and select **Match files**. Use **Local metadata** to work without an API connection.
+   The app remembers the last source you selected or used and restores it next time.
 3. Review the original and proposed names together. Double-click a new filename to edit it. Missing metadata, invalid names, and collisions are marked **Review** and skipped.
 4. Check the files to include, then select **Rename**. Files stay in their original folders. **Undo last rename** also supports completed changes after a partial failure.
 

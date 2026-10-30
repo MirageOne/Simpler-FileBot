@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt
 
 import backend.core_backend as backend
+from backend import settings_backend
 from backend.media_record import MediaRecord
 from pages.core.core_renamer_widget import CoreRenamerWidget
 
@@ -204,6 +205,59 @@ def test_changed_match_settings_invalidate_preview(qtbot, tmp_path):
     source, target = tmp_path / 'Show.S01E01.mkv', tmp_path / 'Pilot.mkv'
     prepare(widget, [source], [target])
     assert widget.rename_button.isEnabled()
-    widget.database_combo.setCurrentText('Local metadata')
+    next_source = 'OMDB' if widget.database_combo.currentText() != 'OMDB' else 'Local metadata'
+    widget.database_combo.setCurrentText(next_source)
     assert widget.table.item(0, 2).text() == ''
     assert not widget.rename_button.isEnabled()
+
+
+def test_last_selected_source_restored_in_new_window(qtbot, monkeypatch):
+    class MemorySettings:
+        values = {'metadata_source': 'TVMaze'}
+
+        def get(self, key, default=None):
+            return self.values.get(key, default)
+
+        def set(self, key, value):
+            self.values[key] = value
+
+    settings = MemorySettings()
+    monkeypatch.setattr(settings_backend, '_settings_json_config', settings)
+    first = CoreRenamerWidget()
+    qtbot.addWidget(first)
+    first.database_combo.setCurrentText('OMDB')
+    assert settings.get('metadata_source') == 'OMDB'
+
+    second = CoreRenamerWidget()
+    qtbot.addWidget(second)
+    assert second.database_combo.currentText() == 'OMDB'
+
+
+def test_movie_fallback_is_not_saved_until_used(qtbot, monkeypatch, tmp_path):
+    class MemorySettings:
+        values = {'metadata_source': 'TVMaze'}
+
+        def get(self, key, default=None):
+            return self.values.get(key, default)
+
+        def set(self, key, value):
+            self.values[key] = value
+
+    settings = MemorySettings()
+    monkeypatch.setattr(settings_backend, '_settings_json_config', settings)
+    widget = CoreRenamerWidget()
+    qtbot.addWidget(widget)
+    source = tmp_path / 'Movie.2023.mkv'
+    source.touch()
+    widget.table.add_records([MediaRecord(str(source))])
+    assert widget.database_combo.currentText() == 'TheMovieDB'
+    assert settings.get('metadata_source') == 'TVMaze'
+
+    from databases.file_name_match_db import FileNameMatchDB
+    monkeypatch.setattr('pages.core.core_renamer_widget.check_if_api_key_exists_otherwise_prompt_user',
+                        lambda key: True)
+    monkeypatch.setattr('pages.core.core_renamer_widget.TheMovieDBPythonDB',
+                        lambda records, series: FileNameMatchDB(records, series))
+    widget.match_files()
+    qtbot.waitUntil(lambda: not widget._busy)
+    assert settings.get('metadata_source') == 'TheMovieDB'

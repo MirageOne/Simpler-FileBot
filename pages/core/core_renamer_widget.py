@@ -12,7 +12,8 @@ from backend.core_backend import get_invalid_file_names_and_fixes, perform_file_
 from backend.database_worker import DatabaseWorker
 from backend.formats_backend import retrieve_movies_format_from_formats_file, retrieve_series_format_from_formats_file
 from backend.media_record import MediaRecord
-from backend.settings_backend import retrieve_filename_analysis_only_flag, set_filename_analysis_only_flag
+from backend.settings_backend import (retrieve_filename_analysis_only_flag, set_filename_analysis_only_flag,
+                                      retrieve_metadata_source, save_metadata_source)
 from databases.file_name_match_db import FileNameMatchDB
 from databases.tvmaze_python_db import TVMazePythonDB
 from databases.themoviedb_python_db import TheMovieDBPythonDB
@@ -103,6 +104,7 @@ class CoreRenamerWidget(QWidget):
         fields.setVerticalSpacing(6)
         self.database_combo = QComboBox()
         self.database_combo.addItems(['TVMaze', 'TheMovieDB', 'OMDB', 'Local metadata'])
+        self.database_combo.setCurrentText(retrieve_metadata_source())
         self.database_combo.setAccessibleName('Metadata source')
         self.series_input = QLineEdit()
         self.series_input.setPlaceholderText('Detected from your files')
@@ -200,7 +202,8 @@ class CoreRenamerWidget(QWidget):
             shortcut = QShortcut(QKeySequence(key), self)
             shortcut.activated.connect(action)
             self._shortcuts.append(shortcut)
-        self.database_combo.currentTextChanged.connect(lambda: self.clear_preview())
+        self._source_change_is_automatic = False
+        self.database_combo.currentTextChanged.connect(self._source_changed)
         self.series_input.textEdited.connect(lambda: self.clear_preview())
         self.year_input.textEdited.connect(lambda: self.clear_preview())
         self.absolute_order.toggled.connect(lambda: self.clear_preview())
@@ -234,6 +237,11 @@ class CoreRenamerWidget(QWidget):
             self._message = ''
             self.table.remove_rows(range(self.table.rowCount()))
 
+    def _source_changed(self, source: str):
+        if not self._source_change_is_automatic:
+            save_metadata_source(source)
+        self.clear_preview()
+
     def _records_changed(self):
         records = self.records()
         series = bool(records) and MediaRecord.is_tv_series(records)
@@ -244,7 +252,11 @@ class CoreRenamerWidget(QWidget):
         self.series_input.setText(next(iter(titles)) if len(titles) == 1 else '')
         self.year_input.setText(str(records[0].year) if series and records[0].year else '')
         if records and not series and self.database_combo.currentText() == 'TVMaze':
-            self.database_combo.setCurrentText('TheMovieDB')
+            self._source_change_is_automatic = True
+            try:
+                self.database_combo.setCurrentText('TheMovieDB')
+            finally:
+                self._source_change_is_automatic = False
         self.update_format_label()
         self.refresh_preview()
 
@@ -423,6 +435,7 @@ class CoreRenamerWidget(QWidget):
             return
         database = {'TVMaze': TVMazePythonDB, 'TheMovieDB': TheMovieDBPythonDB,
                     'OMDB': OMDBPythonDB, 'Local metadata': FileNameMatchDB}[source](records, series)
+        save_metadata_source(source)
         self._message = ''
         self._snapshot_paths = [record.full_file_path for record in records]
         self._matching = True
