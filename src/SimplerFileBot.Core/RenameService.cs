@@ -23,7 +23,8 @@ public static class RenameService
             if (error is null && !File.Exists(source)) error = "The source file no longer exists.";
             if (error is null && !sources.Add(source)) error = "The source appears more than once.";
             if (error is null && !destinations.Add(destination)) error = "Another row has this destination.";
-            if (error is null && !source.Equals(destination, StringComparison.OrdinalIgnoreCase) && File.Exists(destination))
+            if (error is null && !source.Equals(destination, StringComparison.OrdinalIgnoreCase) &&
+                (File.Exists(destination) || Directory.Exists(destination)))
                 error = "A file already exists at this destination.";
             if (error is not null) errors[entry] = error;
         }

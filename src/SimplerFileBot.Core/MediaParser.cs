@@ -23,7 +23,7 @@ public static partial class MediaParser
     private static readonly Regex SeasonFolderPattern = new(@"\bSeason[ ._-]*(?<season>\d{1,3})\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex EpisodeOnlyPattern = new(@"\bE(?<episode>\d{1,4})\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex NoisePattern = new(@"\b(?:2160p|1080p|720p|480p|BluRay|WEB[ ._-]?DL|WEBRip|DVDRip|x264|x265|H[ ._-]?264|H[ ._-]?265|HEVC|AAC|DTS|HDR|REPACK|PROPER)\b.*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-    private static readonly Regex SeparatorPattern = new(@"[._]+|\s*-\s*", RegexOptions.Compiled);
+    private static readonly Regex SeparatorPattern = new(@"[._]+|\s+-\s+", RegexOptions.Compiled);
 
     public static MediaItem Parse(string path, AppSettings? settings = null)
     {

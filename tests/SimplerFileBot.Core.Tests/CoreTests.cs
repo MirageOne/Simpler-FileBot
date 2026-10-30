@@ -91,6 +91,30 @@ public sealed class CoreTests
         Assert.Equal(2019, result[0].Year);
     }
 
+    [Fact]
+    public async Task TmdbChoosesMovieReleaseNearParsedYear()
+    {
+        var handler = new FakeHandler(_ => "{\"results\":[{\"title\":\"Wrong\",\"release_date\":\"1980-01-01\"},{\"title\":\"Correct\",\"release_date\":\"2020-01-01\"}]}");
+        var service = new MetadataService(new HttpClient(handler));
+        var item = MediaParser.Parse("Example.2020.mkv");
+        var result = await service.MatchAsync([item], MetadataSources.Tmdb, new ApiKeys { Tmdb = "key" }, false);
+        Assert.Equal("Correct", result[0].Title);
+        Assert.Equal(2020, result[0].Year);
+    }
+
+    [Fact]
+    public async Task OmdbMatchesSeasonEpisode()
+    {
+        var handler = new FakeHandler(request => request.RequestUri!.Query.Contains("Season=2", StringComparison.Ordinal)
+            ? "{\"Episodes\":[{\"Episode\":\"4\",\"Title\":\"The Fourth\"}]}"
+            : "{\"Title\":\"Example\",\"Year\":\"2018–2021\",\"totalSeasons\":\"2\"}");
+        var service = new MetadataService(new HttpClient(handler));
+        var item = MediaParser.Parse("Example.S02E04.mkv");
+        var result = await service.MatchAsync([item], MetadataSources.Omdb, new ApiKeys { Omdb = "key" }, false);
+        Assert.Equal("The Fourth", result[0].EpisodeTitle);
+        Assert.Equal(2018, result[0].Year);
+    }
+
     private sealed class FakeHandler(Func<HttpRequestMessage, string> response) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>

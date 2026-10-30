@@ -13,9 +13,13 @@
                 <NavigationViewItem Content="Settings" Tag="settings" Icon="Setting" />
             </NavigationView.MenuItems>
             <Grid Padding="28,20,28,20">
-                <Grid x:Name="RenameView" RowSpacing="16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <InfoBar x:Name="Notice" Grid.Row="0" Margin="0,0,0,12" IsOpen="False" IsClosable="True" />
+                <Grid x:Name="RenameView" Grid.Row="1" RowSpacing="16">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -61,8 +65,7 @@
                         <Button x:Name="RenameButton" Content="Rename checked" Click="Rename_Click" />
                         <Button x:Name="UndoButton" Content="Undo last rename" Click="Undo_Click" IsEnabled="False" />
                     </StackPanel>
-                    <InfoBar x:Name="Notice" Grid.Row="4" IsOpen="False" IsClosable="True" />
-                    <Grid Grid.Row="5" RowSpacing="8">
+                    <Grid Grid.Row="4" RowSpacing="8">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
@@ -101,10 +104,10 @@
                             </ListView.ItemTemplate>
                         </ListView>
                     </Grid>
-                    <TextBlock x:Name="SummaryText" Grid.Row="6" Text="No files added" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock x:Name="SummaryText" Grid.Row="5" Text="No files added" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </Grid>
 
-                <ScrollViewer x:Name="FormatsView" Visibility="Collapsed">
+                <ScrollViewer x:Name="FormatsView" Grid.Row="1" Visibility="Collapsed">
                     <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Left">
                         <TextBlock Text="Formats" Style="{StaticResource TitleTextBlockStyle}" />
                         <TextBlock Text="Choose filenames using the placeholders below. Extensions are retained automatically." TextWrapping="Wrap" />
@@ -118,7 +121,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <ScrollViewer x:Name="MetadataView" Visibility="Collapsed">
+                <ScrollViewer x:Name="MetadataView" Grid.Row="1" Visibility="Collapsed">
                     <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Left">
                         <TextBlock Text="Metadata" Style="{StaticResource TitleTextBlockStyle}" />
                         <TextBlock Text="TVMaze and local matching need no key. TheMovieDB and OMDB keys are stored on this PC." TextWrapping="Wrap" />
@@ -128,7 +131,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <ScrollViewer x:Name="SettingsView" Visibility="Collapsed">
+                <ScrollViewer x:Name="SettingsView" Grid.Row="1" Visibility="Collapsed">
                     <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Left">
                         <TextBlock Text="Settings" Style="{StaticResource TitleTextBlockStyle}" />
                         <ComboBox x:Name="ThemeCombo" Header="Theme" SelectionChanged="ThemeCombo_SelectionChanged">
