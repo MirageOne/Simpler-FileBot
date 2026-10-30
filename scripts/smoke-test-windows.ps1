@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$Directory)
+param(
+    [Parameter(Mandatory)][string]$Directory,
+    [ValidateRange(1, 60)][int]$WaitSeconds = 15
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -11,8 +14,8 @@ $Started = Get-Date
 $Process = $null
 try {
     $Process = Start-Process -FilePath $Executable -WorkingDirectory $Directory -PassThru
-    if (-not $Process.WaitForExit(15000)) {
-        Write-Host 'Portable app stayed open for 15 seconds.'
+    if (-not $Process.WaitForExit($WaitSeconds * 1000)) {
+        Write-Host "Portable app stayed open for $WaitSeconds seconds."
         return
     }
 

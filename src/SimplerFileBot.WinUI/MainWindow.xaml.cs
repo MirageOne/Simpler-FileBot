@@ -67,6 +67,15 @@ public sealed partial class MainWindow : Window
             Root.Children.Add(Label("Simpler FileBot diagnostic window"));
             return;
         }
+        if (diagnostic == "button") { Root.Children.Add(new Button { Content = "Test" }); return; }
+        if (diagnostic == "combo") { Root.Children.Add(new ComboBox { Header = "Test" }); return; }
+        if (diagnostic == "list") { Root.Children.Add(new ListView()); return; }
+        if (diagnostic == "info") { Root.Children.Add(new InfoBar { Title = "Test", IsOpen = true }); return; }
+        if (diagnostic == "navigation_empty")
+        {
+            Root.Children.Add(new NavigationView { IsSettingsVisible = false });
+            return;
+        }
         if (diagnostic == "navigation")
         {
             var navigation = new NavigationView { IsSettingsVisible = false };
