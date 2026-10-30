@@ -62,8 +62,8 @@ public sealed partial class MainWindow : Window
         Root.Drop += Root_Drop;
         BuildUi();
         Navigation.SelectionChanged += Navigation_SelectionChanged;
+        Navigation.Loaded += (_, _) => Navigation.SelectedItem = Navigation.MenuItems[0];
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 760));
-        Navigation.SelectedItem = Navigation.MenuItems[0];
         SystemBackdrop = new MicaBackdrop();
         Root.RequestedTheme = _config.Settings.Theme == "Dark" ? ElementTheme.Dark : ElementTheme.Light;
         SourceCombo.SelectedIndex = Math.Max(0, Array.IndexOf(MetadataSources.All, _config.Settings.MetadataSource));
