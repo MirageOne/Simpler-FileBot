@@ -112,10 +112,10 @@
                         <TextBlock Text="Formats" Style="{StaticResource TitleTextBlockStyle}" />
                         <TextBlock Text="Choose filenames using the placeholders below. Extensions are retained automatically." TextWrapping="Wrap" />
                         <TextBox x:Name="MovieFormatBox" Header="Movie format" TextChanged="Format_TextChanged" />
-                        <TextBlock Text="{movie_name}  {year}" />
+                        <TextBlock Text="{}{movie_name}  {year}" />
                         <TextBlock x:Name="MovieExample" />
                         <TextBox x:Name="SeriesFormatBox" Header="Series format" TextChanged="Format_TextChanged" />
-                        <TextBlock Text="{series_name}  {year}  {season_number}  {episode_number}  {episode_title}" TextWrapping="Wrap" />
+                        <TextBlock Text="{}{series_name}  {year}  {season_number}  {episode_number}  {episode_title}" TextWrapping="Wrap" />
                         <TextBlock x:Name="SeriesExample" />
                         <Button Content="Save formats" Click="SaveFormats_Click" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" />
                     </StackPanel>
