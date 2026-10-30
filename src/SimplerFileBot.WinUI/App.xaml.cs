@@ -5,10 +5,12 @@ namespace SimplerFileBot.WinUI;
 
 public partial class App : Application
 {
+    private static int _reported;
     private Window? _window;
 
     public App()
     {
+        UnhandledException += (_, args) => ReportStartupFailure(args.Exception);
         try { InitializeComponent(); }
         catch (Exception error) { ReportStartupFailure(error); throw; }
     }
@@ -25,6 +27,7 @@ public partial class App : Application
 
     private static void ReportStartupFailure(Exception error)
     {
+        if (Interlocked.Exchange(ref _reported, 1) != 0) return;
         var message = "Simpler FileBot could not start.";
         try
         {
