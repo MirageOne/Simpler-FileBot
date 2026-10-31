@@ -12,7 +12,7 @@ The default templates are `{movie_name} ({year})` and `S{season_number}E{episode
 
 ## Build
 
-See [Windows build instructions](docs/windows-build.md) for the Windows prerequisites and exact commands to run the app, build a single-file portable EXE, and build an Inno Setup installer. Open `SimplerFileBot.sln` in Visual Studio, or use the projects in `src/SimplerFileBot.Core` and `src/SimplerFileBot.WinUI`; core tests are in `tests/SimplerFileBot.Core.Tests`.
+See [Windows build instructions](docs/windows-build.md) for the Windows prerequisites and exact commands to run the app and build packages. Every packaging run produces the single-file portable EXE; installer targets also create an Inno Setup installer. Open `SimplerFileBot.sln` in Visual Studio, or use the projects in `src/SimplerFileBot.Core` and `src/SimplerFileBot.WinUI`; core tests are in `tests/SimplerFileBot.Core.Tests`.
 
 The portable EXE keeps settings in `data` beside itself. It unpacks the native runtime to a temporary folder while the app runs and removes that folder when the app closes. The installer stores settings under `%LOCALAPPDATA%\Simpler FileBot`. Existing Python edition JSON settings, formats, and API keys in that folder are read by the native app.
 

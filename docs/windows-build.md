@@ -63,14 +63,14 @@ Test-Path .\scripts\build-windows.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-windows.ps1 -Target All
 ```
 
-Or choose one target:
+Build just the portable EXE, or request the installer as well:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-windows.ps1 -Target Portable
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-windows.ps1 -Target Installer
 ```
 
-The script runs core tests, publishes a self-contained `win-x64` .NET and Windows App SDK app, then creates the selected packages. Use `-Version 2.1.6` to change the package version. Use `-DotNet "C:\full\path\to\dotnet.exe"` if `dotnet` is not on `PATH`.
+The script runs core tests, publishes a self-contained `win-x64` .NET and Windows App SDK app, and always creates the single-file portable EXE. `-Target All` (the default) and `-Target Installer` also create the installer. If Inno Setup is unavailable, the portable EXE is still built before the installer step reports the missing prerequisite. Use `-Version 2.1.6` to change the package version. Use `-DotNet "C:\full\path\to\dotnet.exe"` if `dotnet` is not on `PATH`.
 
 Outputs are placed in `dist\windows\packages`:
 
@@ -101,4 +101,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-windows.
 
 You can always build just the portable package without Inno Setup.
 
-The [Windows packages workflow](../.github/workflows/windows-packages.yml) builds and uploads both package files on relevant pushes and pull requests. The [.NET test workflow](../.github/workflows/test.yml) runs core tests on Linux and Windows.
+The [Windows packages workflow](../.github/workflows/windows-packages.yml) builds and uploads the portable EXE first on every push to `main` and every pull request. It then builds and uploads the installer as a separate artifact. The [.NET test workflow](../.github/workflows/test.yml) runs core tests on Linux and Windows.

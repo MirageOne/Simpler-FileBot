@@ -4,23 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'global.json'
-      - 'tests/SimplerFileBot.Core.Tests/**'
-      - 'scripts/build-windows.ps1'
-      - 'scripts/smoke-test-windows.ps1'
-      - 'packaging/windows/**'
-      - '.github/workflows/windows-packages.yml'
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'global.json'
-      - 'tests/SimplerFileBot.Core.Tests/**'
-      - 'scripts/build-windows.ps1'
-      - 'scripts/smoke-test-windows.ps1'
-      - 'packaging/windows/**'
-      - '.github/workflows/windows-packages.yml'
+  pull_request: {}
 
 permissions:
   contents: read
@@ -34,6 +18,21 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - name: Test and build single-file portable EXE
+        shell: pwsh
+        run: |
+          ./scripts/build-windows.ps1 -Target Portable *>&1 | Tee-Object -FilePath build-output.log
+      - name: Smoke-test single-file portable app
+        shell: pwsh
+        run: |
+          $Portable = Get-ChildItem ./dist/windows/packages -Filter '*-portable-x64.exe' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $Portable) { throw 'Single-file portable executable was not produced.' }
+          ./scripts/smoke-test-windows.ps1 -Executable $Portable.FullName -WaitSeconds 60 *>&1 | Tee-Object -FilePath smoke-output.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Simpler-FileBot-portable-x64
+          path: dist/windows/packages/*-portable-x64.exe
+          if-no-files-found: error
       - name: Ensure Inno Setup is available
         shell: pwsh
         run: |
@@ -43,26 +42,20 @@ jobs:
             choco install innosetup --no-progress -y
             if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed.' }
           }
-      - name: Test and build single-file portable EXE and installer
+      - name: Build installer (also rebuilds portable EXE)
         shell: pwsh
         run: |
-          ./scripts/build-windows.ps1 -Target All *>&1 | Tee-Object -FilePath build-output.log
-      - name: Smoke-test single-file portable app
-        shell: pwsh
-        run: |
-          $Portable = Get-ChildItem ./dist/windows/packages -Filter '*-portable-x64.exe' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-          if (-not $Portable) { throw 'Single-file portable executable was not produced.' }
-          ./scripts/smoke-test-windows.ps1 -Executable $Portable.FullName -WaitSeconds 60 *>&1 | Tee-Object -FilePath smoke-output.log
+          ./scripts/build-windows.ps1 -Target Installer *>&1 | Tee-Object -FilePath installer-output.log
       - name: Report build failure
         if: failure()
         shell: pwsh
         run: |
-          $Tail = if (Test-Path smoke-output.log) { Get-Content smoke-output.log -Tail 45 } elseif (Test-Path build-output.log) { Get-Content build-output.log -Tail 45 } else { @('No build log was created.') }
+          $Tail = if (Test-Path installer-output.log) { Get-Content installer-output.log -Tail 45 } elseif (Test-Path smoke-output.log) { Get-Content smoke-output.log -Tail 45 } elseif (Test-Path build-output.log) { Get-Content build-output.log -Tail 45 } else { @('No build log was created.') }
           @('### Windows build output', '```text') + $Tail + @('```') | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
           $Message = ($Tail -join "`n").Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
           Write-Host "::error title=Windows build output::$Message"
       - uses: actions/upload-artifact@v4
         with:
-          name: Simpler-FileBot-WinUI3-x64
-          path: dist/windows/packages/*.exe
+          name: Simpler-FileBot-setup-x64
+          path: dist/windows/packages/*-setup-x64.exe
           if-no-files-found: error
