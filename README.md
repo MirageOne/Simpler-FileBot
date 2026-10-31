@@ -4,11 +4,11 @@ Simpler FileBot is a native Windows media renamer built with C#, .NET 10, WinUI 
 
 ## Use
 
-Add files, drag them into the window, or scan a folder. Choose a metadata source and select **Match metadata**. Edit any proposed filename before selecting **Rename checked**. Rows with missing metadata, invalid Windows names, or destination collisions must be resolved first. **Undo last rename** restores completed changes, including after a partial failure.
+Add files, drag them into the window, or scan a folder. Choose a metadata source and select **Match files**. Edit any proposed filename before selecting **Rename checked files**. Rows with missing metadata, invalid Windows names, or destination collisions must be resolved first. **Undo last rename** restores completed changes, including after a partial failure.
 
 The source you select is remembered for the next launch. TVMaze supports TV episodes; TheMovieDB and OMDB support movies and episodes and require API keys on the **Metadata** page. **Formats** controls the movie and episode filename templates. **Settings** follows the Windows theme by default, with light and dark overrides, and also controls folder exclusions and filename-only analysis.
 
-The default templates are `{movie_name} ({year})` and `S{season_number}E{episode_number} - {episode_title}`. The original file extension is retained. Episode matching uses one show at a time and recognizes common `S01E02`, `1x02`, and season-folder `E02` names. Multiple episodes in one filename use the first episode number. The native parser does not use Python's `guessit` library, so review unusual release names before renaming.
+The default templates are `{movie_name} ({year})` and `S{season_number}E{episode_number} - {episode_title}`. The original file extension is retained. Episodes from different series can be matched and renamed together; the app groups them by detected title and year. Leave **Title override** blank to match each series separately. Match movies and episodes in separate batches. The parser recognizes common `S01E02`, `1x02`, and season-folder `E02` names. Multiple episodes in one filename use the first episode number. The native parser does not use Python's `guessit` library, so review unusual release names before renaming.
 
 ## Build
 

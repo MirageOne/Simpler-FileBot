@@ -129,6 +129,36 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public async Task TvMazeMatchesInterleavedSeriesAndKeepsFileOrder()
+    {
+        var requests = new List<string>();
+        var handler = new FakeHandler(request =>
+        {
+            var uri = request.RequestUri!;
+            requests.Add(uri.ToString());
+            return uri.AbsolutePath switch
+            {
+                "/search/shows" when uri.Query.Contains("Alpha", StringComparison.Ordinal) =>
+                    "[{\"show\":{\"id\":11,\"name\":\"Alpha\",\"premiered\":\"2020-01-01\"}}]",
+                "/search/shows" => "[{\"show\":{\"id\":22,\"name\":\"Beta\",\"premiered\":\"2021-01-01\"}}]",
+                "/shows/11/episodes" => "[{\"season\":1,\"number\":1,\"name\":\"Alpha One\"},{\"season\":1,\"number\":2,\"name\":\"Alpha Two\"}]",
+                "/shows/22/episodes" => "[{\"season\":1,\"number\":1,\"name\":\"Beta One\"}]",
+                _ => throw new InvalidOperationException(uri.ToString())
+            };
+        });
+        var service = new MetadataService(new HttpClient(handler));
+        var items = new[] { MediaParser.Parse("Alpha.S01E01.mkv"),
+            MediaParser.Parse(Path.Combine("Beta", "Season 1", "E01.mkv")),
+            MediaParser.Parse("alpha.S01E02.mkv") };
+
+        var results = await service.MatchAsync(items, MetadataSources.TvMaze, new ApiKeys(), false);
+
+        Assert.Equal(new[] { "Alpha One", "Beta One", "Alpha Two" }, results.Select(result => result.EpisodeTitle));
+        Assert.Equal(new[] { "Alpha", "Beta", "Alpha" }, results.Select(result => result.Title));
+        Assert.Equal(2, requests.Count(uri => uri.Contains("/search/shows", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public async Task TmdbChoosesMovieReleaseNearParsedYear()
     {
         var handler = new FakeHandler(_ => "{\"results\":[{\"title\":\"Wrong\",\"release_date\":\"1980-01-01\"},{\"title\":\"Correct\",\"release_date\":\"2020-01-01\"}]}");
@@ -137,6 +167,26 @@ public sealed class CoreTests
         var result = await service.MatchAsync([item], MetadataSources.Tmdb, new ApiKeys { Tmdb = "key" }, false);
         Assert.Equal("Correct", result[0].Title);
         Assert.Equal(2020, result[0].Year);
+    }
+
+    [Fact]
+    public async Task TmdbKeepsSeriesWithTheSameTitleButDifferentYearsSeparate()
+    {
+        var handler = new FakeHandler(request => request.RequestUri!.AbsolutePath switch
+        {
+            "/3/search/tv" => "{\"results\":[{\"id\":11,\"name\":\"Example 2005\",\"first_air_date\":\"2005-01-01\"},{\"id\":22,\"name\":\"Example 2018\",\"first_air_date\":\"2018-01-01\"}]}",
+            "/3/tv/11/season/1" => "{\"episodes\":[{\"episode_number\":1,\"name\":\"Old Pilot\"}]}",
+            "/3/tv/22/season/1" => "{\"episodes\":[{\"episode_number\":1,\"name\":\"New Pilot\"}]}",
+            _ => throw new InvalidOperationException(request.RequestUri.ToString())
+        });
+        var service = new MetadataService(new HttpClient(handler));
+        var items = new[] { MediaParser.Parse("Example.2018.S01E01.mkv"),
+            MediaParser.Parse("Example.2005.S01E01.mkv") };
+
+        var results = await service.MatchAsync(items, MetadataSources.Tmdb, new ApiKeys { Tmdb = "key" }, false);
+
+        Assert.Equal(new[] { "New Pilot", "Old Pilot" }, results.Select(result => result.EpisodeTitle));
+        Assert.Equal(new[] { "Example 2018", "Example 2005" }, results.Select(result => result.Title));
     }
 
     [Fact]
@@ -150,6 +200,28 @@ public sealed class CoreTests
         var result = await service.MatchAsync([item], MetadataSources.Omdb, new ApiKeys { Omdb = "key" }, false);
         Assert.Equal("The Fourth", result[0].EpisodeTitle);
         Assert.Equal(2018, result[0].Year);
+    }
+
+    [Fact]
+    public async Task OmdbMatchesMultipleSeriesInOneBatch()
+    {
+        var handler = new FakeHandler(request =>
+        {
+            var query = request.RequestUri!.Query;
+            var alpha = query.Contains("t=Alpha", StringComparison.Ordinal);
+            if (query.Contains("Season=1", StringComparison.Ordinal))
+                return alpha ? "{\"Episodes\":[{\"Episode\":\"1\",\"Title\":\"Alpha Pilot\"}]}"
+                    : "{\"Episodes\":[{\"Episode\":\"1\",\"Title\":\"Beta Pilot\"}]}";
+            return alpha ? "{\"Title\":\"Alpha\",\"Year\":\"2020\"}"
+                : "{\"Title\":\"Beta\",\"Year\":\"2021\"}";
+        });
+        var service = new MetadataService(new HttpClient(handler));
+        var items = new[] { MediaParser.Parse("Alpha.S01E01.mkv"), MediaParser.Parse("Beta.S01E01.mkv") };
+
+        var results = await service.MatchAsync(items, MetadataSources.Omdb, new ApiKeys { Omdb = "key" }, false);
+
+        Assert.Equal(new[] { "Alpha Pilot", "Beta Pilot" }, results.Select(result => result.EpisodeTitle));
+        Assert.Equal(new[] { "Alpha", "Beta" }, results.Select(result => result.Title));
     }
 
     private sealed class FakeHandler(Func<HttpRequestMessage, string> response) : HttpMessageHandler

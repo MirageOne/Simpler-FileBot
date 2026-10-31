@@ -3,7 +3,7 @@ param(
     [ValidateSet('All', 'Portable', 'Installer')]
     [string]$Target = 'All',
     [ValidatePattern('^\d+\.\d+\.\d+$')]
-    [string]$Version = '2.1.4',
+    [string]$Version = '2.1.5',
     [string]$DotNet = 'dotnet',
     [string]$IsccPath = ''
 )

@@ -307,7 +307,7 @@ public sealed partial class MainWindow : Window
         SetColumns(heading, Star(), Auto());
         var title = new StackPanel { Spacing = 2 };
         title.Children.Add(Label("Rename files", 30, _palette.Text, true));
-        title.Children.Add(Label("Match your media. Preview every change.", 12, _palette.Muted));
+        title.Children.Add(Label("Match multiple series together. Preview every change.", 12, _palette.Muted));
         AddAt(heading, title, 0);
         UndoButton = Button("↶  Undo last rename", Undo_Click);
         UndoButton.IsEnabled = false;
@@ -341,9 +341,9 @@ public sealed partial class MainWindow : Window
         foreach (var source in MetadataSources.All) SourceCombo.Items.Add(new ComboBoxItem { Content = source });
         SourceCombo.SelectionChanged += SourceCombo_SelectionChanged;
         AddAt(sourceOptions, SourceCombo, 0);
-        TitleBox = new TextBox { Header = "Series or movie", PlaceholderText = "Use detected title" };
+        TitleBox = new TextBox { Header = "Title override (all files)", PlaceholderText = "Blank: detect each title" };
         AddAt(sourceOptions, TitleBox, 0, 1);
-        YearBox = new TextBox { Header = "Year", PlaceholderText = "Auto" };
+        YearBox = new TextBox { Header = "Year override", PlaceholderText = "Auto" };
         AddAt(sourceOptions, YearBox, 0, 2);
         MatchButton = Button("✧  Match files", Match_Click);
         MatchButton.VerticalAlignment = VerticalAlignment.Bottom;
@@ -528,7 +528,7 @@ public sealed partial class MainWindow : Window
 
     private Border BuildPreviewRow(PreviewRow row)
     {
-        var view = new Grid { Padding = new Thickness(16, 5, 16, 5), ColumnSpacing = 12, MinHeight = 48 };
+        var view = new Grid { Padding = new Thickness(16, 5, 16, 5), ColumnSpacing = 12, MinHeight = 56 };
         SetColumns(view, Pixels(36), Star(2), Star(2), Pixels(140));
         var container = new Border { Child = view, Background = _palette.Surface,
             BorderBrush = _palette.Border, BorderThickness = new Thickness(0, 0, 0, 1) };
@@ -543,7 +543,16 @@ public sealed partial class MainWindow : Window
         var original = Label(row.OriginalName, 13, _palette.Muted);
         original.TextTrimming = TextTrimming.CharacterEllipsis;
         ToolTipService.SetToolTip(original, row.Item.SourcePath);
-        AddAt(originalCell, original, 0, 1);
+        var originalDetails = new StackPanel { Spacing = 1 };
+        originalDetails.Children.Add(original);
+        var detectedTitle = Label("", 11, _palette.Muted);
+        detectedTitle.TextTrimming = TextTrimming.CharacterEllipsis;
+        void UpdateDetectedTitle() => detectedTitle.Text = row.Item.Kind == MediaKind.Episode
+            ? $"Series: {(string.IsNullOrWhiteSpace(row.DisplayTitle) ? "Not detected" : row.DisplayTitle)}"
+            : $"Movie: {(string.IsNullOrWhiteSpace(row.DisplayTitle) ? "Not detected" : row.DisplayTitle)}";
+        UpdateDetectedTitle();
+        originalDetails.Children.Add(detectedTitle);
+        AddAt(originalCell, originalDetails, 0, 1);
         AddAt(view, originalCell, 0, 1);
         var proposed = new TextBox { Text = row.ProposedName, Tag = row,
             VerticalAlignment = VerticalAlignment.Center };
@@ -563,6 +572,7 @@ public sealed partial class MainWindow : Window
         row.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(PreviewRow.OriginalName)) original.Text = row.OriginalName;
+            if (args.PropertyName == nameof(PreviewRow.DisplayTitle)) UpdateDetectedTitle();
             if (args.PropertyName == nameof(PreviewRow.ProposedName) && proposed.Text != row.ProposedName)
                 proposed.Text = row.ProposedName;
             if (args.PropertyName == nameof(PreviewRow.Status)) UpdateStatus();
@@ -685,6 +695,7 @@ public sealed partial class MainWindow : Window
             for (var i = 0; i < Rows.Count; i++)
             {
                 Rows[i].ProposedName = FormatService.BuildName(items[i], results[i], _config.Formats);
+                Rows[i].DisplayTitle = results[i].Title ?? items[i].Title;
             }
             RefreshStatuses();
             ShowNotice("Match complete. Review names and status before renaming.", InfoBarSeverity.Success);
@@ -789,10 +800,13 @@ public sealed partial class MainWindow : Window
     {
         var total = Rows.Count;
         FormatHint.Text = $"Format: {(Rows.FirstOrDefault()?.Item.Kind == MediaKind.Movie ? _config.Formats.Movie : _config.Formats.Series)}";
+        var seriesCount = Rows.Where(row => row.Item.Kind == MediaKind.Episode && !string.IsNullOrWhiteSpace(row.DisplayTitle))
+            .Select(row => row.DisplayTitle.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count();
         var ready = Rows.Count(row => row.IsSelected && row.Status == "Ready");
         var selected = Rows.Count(row => row.IsSelected);
         var review = Rows.Count(row => row.IsSelected && row.Status is not ("Ready" or "Already named" or "Match needed"));
-        ToolbarCount.Text = total == 0 ? "No files added" : $"{total} files added";
+        ToolbarCount.Text = total == 0 ? "No files added" : seriesCount > 1
+            ? $"{total} files · {seriesCount} series" : $"{total} files added";
         SummaryText.Text = ready == 0 ? total == 0 ? "No files added" : "No files ready to rename" :
             $"{ready} {(ready == 1 ? "file" : "files")} ready to rename";
         SummaryDetail.Text = review > 0 ? $"{review} need review before renaming." :

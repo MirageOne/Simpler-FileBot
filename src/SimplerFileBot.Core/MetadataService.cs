@@ -14,27 +14,28 @@ public sealed class MetadataService(HttpClient client)
         if (items.Any(item => string.IsNullOrWhiteSpace(item.Title)))
             throw new ArgumentException("A title could not be detected. Enter a title override before matching.");
         if (items.Any(item => item.Kind != items[0].Kind)) throw new ArgumentException("Match movies and episodes in separate batches.");
-        if (items[0].Kind == MediaKind.Episode && items.Select(i => i.Title).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
-            throw new ArgumentException("Match one TV series at a time. Edit the series title or remove other shows.");
         if (source == MetadataSources.Local) return items.Select(i => new MatchResult(i.Title, i.Year, i.EpisodeTitle)).ToList();
         if (source == MetadataSources.TvMaze)
         {
             if (items[0].Kind != MediaKind.Episode) throw new ArgumentException("TVMaze only supports TV episodes. Choose another source for movies.");
-            return await MatchTvMazeAsync(items, absoluteOrder, cancellationToken);
+            return await MatchSeriesGroupsAsync(items,
+                (series, token) => MatchTvMazeAsync(series, absoluteOrder, token), cancellationToken);
         }
         if (source == MetadataSources.Tmdb)
         {
             if (string.IsNullOrWhiteSpace(keys.Tmdb)) throw new ArgumentException("Add a TheMovieDB API key on the Metadata page.");
             return items[0].Kind == MediaKind.Movie
                 ? await MatchMoviesAsync(items, (item, token) => TmdbMovieAsync(item, keys.Tmdb, token), cancellationToken)
-                : await MatchTmdbSeriesAsync(items, keys.Tmdb, absoluteOrder, cancellationToken);
+                : await MatchSeriesGroupsAsync(items,
+                    (series, token) => MatchTmdbSeriesAsync(series, keys.Tmdb, absoluteOrder, token), cancellationToken);
         }
         if (source == MetadataSources.Omdb)
         {
             if (string.IsNullOrWhiteSpace(keys.Omdb)) throw new ArgumentException("Add an OMDB API key on the Metadata page.");
             return items[0].Kind == MediaKind.Movie
                 ? await MatchMoviesAsync(items, (item, token) => OmdbMovieAsync(item, keys.Omdb, token), cancellationToken)
-                : await MatchOmdbSeriesAsync(items, keys.Omdb, absoluteOrder, cancellationToken);
+                : await MatchSeriesGroupsAsync(items,
+                    (series, token) => MatchOmdbSeriesAsync(series, keys.Omdb, absoluteOrder, token), cancellationToken);
         }
         throw new ArgumentException($"Unknown metadata source: {source}");
     }
@@ -51,6 +52,22 @@ public sealed class MetadataService(HttpClient client)
             result.Add(matched);
         }
         return result;
+    }
+
+    private static async Task<IReadOnlyList<MatchResult>> MatchSeriesGroupsAsync(IReadOnlyList<MediaItem> items,
+        Func<IReadOnlyList<MediaItem>, CancellationToken, Task<IReadOnlyList<MatchResult>>> match, CancellationToken token)
+    {
+        var results = new MatchResult[items.Count];
+        var groups = items.Select((item, index) => (Item: item, Index: index))
+            .GroupBy(entry => (Title: entry.Item.Title.Trim().ToUpperInvariant(), entry.Item.Year));
+        foreach (var group in groups)
+        {
+            token.ThrowIfCancellationRequested();
+            var entries = group.ToArray();
+            var matches = await match(entries.Select(entry => entry.Item).ToArray(), token);
+            for (var i = 0; i < entries.Length; i++) results[entries[i].Index] = matches[i];
+        }
+        return results;
     }
 
     private async Task<MatchResult> TmdbMovieAsync(MediaItem item, string key, CancellationToken token)
