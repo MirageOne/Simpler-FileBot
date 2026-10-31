@@ -21,12 +21,18 @@ jobs:
       - name: Test and build single-file portable EXE
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force -Path ./dist/windows/packages | Out-Null
+          $LegacyZip = './dist/windows/packages/Simpler-FileBot-2.1.2-portable-x64.zip'
+          Set-Content -LiteralPath $LegacyZip -Value 'obsolete build'
           ./scripts/build-windows.ps1 -Target Portable *>&1 | Tee-Object -FilePath build-output.log
+          if (Test-Path -LiteralPath $LegacyZip) { throw 'Obsolete portable ZIP was not removed.' }
+          if (Test-Path ./build/windows/portable) { throw 'Portable staging files were not removed.' }
       - name: Smoke-test single-file portable app
         shell: pwsh
         run: |
-          $Portable = Get-ChildItem ./dist/windows/packages -Filter '*-portable-x64.exe' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-          if (-not $Portable) { throw 'Single-file portable executable was not produced.' }
+          $PortableFiles = @(Get-ChildItem ./dist/windows/packages -Filter '*-portable-x64.exe' -File)
+          if ($PortableFiles.Count -ne 1) { throw "Expected one portable EXE, found $($PortableFiles.Count)." }
+          $Portable = $PortableFiles[0]
           ./scripts/smoke-test-windows.ps1 -Executable $Portable.FullName -WaitSeconds 60 *>&1 | Tee-Object -FilePath smoke-output.log
       - uses: actions/upload-artifact@v4
         with:

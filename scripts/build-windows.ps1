@@ -38,10 +38,11 @@ try {
     New-Item -ItemType Directory -Force -Path $Packages | Out-Null
 
     $Name = "Simpler-FileBot-$Version-portable-x64"
-    $Stage = Join-Path (Join-Path $Build 'portable') $Name
-    $Payload = Join-Path (Join-Path $Build 'portable') 'payload.zip'
-    $LauncherOutput = Join-Path (Join-Path $Build 'portable') 'launcher'
-    if (Test-Path -LiteralPath $Stage) { Remove-Item -LiteralPath $Stage -Recurse -Force }
+    $PortableWork = Join-Path $Build 'portable'
+    $Stage = Join-Path $PortableWork $Name
+    $Payload = Join-Path $PortableWork 'payload.zip'
+    $LauncherOutput = Join-Path $PortableWork 'launcher'
+    if (Test-Path -LiteralPath $PortableWork) { Remove-Item -LiteralPath $PortableWork -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $Stage | Out-Null
     Copy-Item -Path (Join-Path $App '*') -Destination $Stage -Recurse
     Copy-Item -LiteralPath (Join-Path $Root 'LICENSE') -Destination $Stage
@@ -58,6 +59,11 @@ try {
     if ($ExtraFiles.Count -ne 0) { throw "Portable launcher publish produced extra files: $($ExtraFiles.Name -join ', ')" }
     $PortableExecutable = Join-Path $Packages "$Name.exe"
     Copy-Item -LiteralPath $LauncherExecutable -Destination $PortableExecutable -Force
+    foreach ($LegacyZip in @(Get-ChildItem -LiteralPath $Packages -Filter 'Simpler-FileBot-*-portable-x64.zip' -File)) {
+        Remove-Item -LiteralPath $LegacyZip.FullName -Force
+        Write-Host "Removed obsolete portable ZIP: $($LegacyZip.Name)"
+    }
+    Remove-Item -LiteralPath $PortableWork -Recurse -Force
     Write-Host "Portable executable: $PortableExecutable"
 
     if ($Target -in @('All', 'Installer')) {
