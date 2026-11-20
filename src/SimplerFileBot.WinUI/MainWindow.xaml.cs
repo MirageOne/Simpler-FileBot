@@ -3,7 +3,6 @@ using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Text;
 using SimplerFileBot.Core;
 using Windows.ApplicationModel.DataTransfer;
@@ -36,6 +35,15 @@ public sealed partial class MainWindow : Window
     private Border Notice = null!;
     private TextBlock NoticeText = null!;
     private StackPanel EmptyState = null!;
+    private static readonly char[] ReservedCharacters = "\\/:*?\"<>|".ToCharArray();
+    private PreviewRow? _selectedFile;
+    private readonly List<(CheckBox Check, PreviewRow[] Rows)> _groupChecks = [];
+    private TextBlock SelectedName = null!;
+    private TextBlock DetectedText = null!;
+    private TextBlock MatchedText = null!;
+    private StackPanel SelectedDetails = null!;
+    private TextBlock ReviewTitle = null!;
+    private Button ReplaceCharacterButton = null!;
     private Border ReviewBanner = null!;
     private TextBlock ReviewText = null!;
     private TextBlock FormatHint = null!;
@@ -58,8 +66,8 @@ public sealed partial class MainWindow : Window
     private CheckBox FilenameOnlyCheck = null!;
     private CheckBox AbsoluteCheck = null!;
     private Button CancelButton = null!;
-    private Button RemoveButton = null!;
-    private Button ClearButton = null!;
+    private MenuFlyoutItem RemoveButton = null!;
+    private MenuFlyoutItem ClearButton = null!;
     private Button MatchButton = null!;
     private Button RenameButton = null!;
     private Button UndoButton = null!;
@@ -82,7 +90,7 @@ public sealed partial class MainWindow : Window
         Root.Drop += Root_Drop;
         BuildUi();
         SetTitleBar(_titleBar);
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 760));
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 800));
         SystemBackdrop = new MicaBackdrop();
         Root.RequestedTheme = RequestedElementTheme();
         Root.ActualThemeChanged += (_, _) => ApplyVisualTheme(Root.ActualTheme == ElementTheme.Dark);
@@ -197,7 +205,7 @@ public sealed partial class MainWindow : Window
         AddAt(shell, new Border { Child = rail, BorderBrush = _palette.Border,
             BorderThickness = new Thickness(0, 0, 1, 0) }, 0);
 
-        var host = new Grid { Padding = new Thickness(30, 20, 30, 20) };
+        var host = new Grid { Padding = new Thickness(30, 22, 30, 20) };
         SetRows(host, Auto(), Star());
         AddAt(shell, host, 0, 1);
         var noticeContent = new Grid { ColumnSpacing = 16 };
@@ -234,12 +242,8 @@ public sealed partial class MainWindow : Window
             Padding = new Thickness(16, 0, 140, 0) };
         var brand = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10,
             VerticalAlignment = VerticalAlignment.Center };
-        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.png");
-        if (File.Exists(iconPath))
-        {
-            brand.Children.Add(new Image { Source = new BitmapImage(new Uri(iconPath)),
-                Width = 22, Height = 22, VerticalAlignment = VerticalAlignment.Center });
-        }
+        brand.Children.Add(new Border { Width = 22, Height = 22, CornerRadius = new CornerRadius(5),
+            Background = _palette.Accent, VerticalAlignment = VerticalAlignment.Center });
         brand.Children.Add(Label("Simpler FileBot", 13, _palette.Text, true));
         bar.Children.Add(brand);
         return bar;
@@ -272,7 +276,7 @@ public sealed partial class MainWindow : Window
         var content = new Grid { ColumnSpacing = 10 };
         SetColumns(content, Pixels(3), Pixels(18), Star());
         var marker = new Border { Background = _palette.Accent, Visibility = Visibility.Collapsed,
-            CornerRadius = new CornerRadius(2) };
+            CornerRadius = new CornerRadius(2), Height = 16 };
         AddAt(content, marker, 0);
         AddAt(content, Icon(glyph), 0, 1);
         var label = Label(title, 14);
@@ -301,88 +305,39 @@ public sealed partial class MainWindow : Window
 
     private Grid BuildRenameView()
     {
-        var page = new Grid { RowSpacing = 18 };
+        var page = new Grid { RowSpacing = 14 };
         SetRows(page, Auto(), Auto(), Star(), Auto());
-        var heading = new Grid();
-        SetColumns(heading, Star(), Auto());
-        var title = new StackPanel { Spacing = 2 };
-        title.Children.Add(Label("Rename files", 30, _palette.Text, true));
-        title.Children.Add(Label("Match multiple series together. Preview every change.", 12, _palette.Muted));
-        AddAt(heading, title, 0);
-        UndoButton = Button("↶  Undo last rename", Undo_Click);
-        UndoButton.IsEnabled = false;
-        UndoButton.VerticalAlignment = VerticalAlignment.Top;
-        AddAt(heading, UndoButton, 0, 1);
-        AddAt(page, heading, 0);
+        AddAt(page, Label("Rename files", 30, _palette.Text, true), 0);
+        AddAt(page, BuildRenameToolbar(), 1);
 
-        var toolbar = new Grid();
-        SetColumns(toolbar, Star(), Auto());
-        var addCommands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        addCommands.Children.Add(AccentButton("＋  Add files", AddFiles_Click));
-        addCommands.Children.Add(Button("▱  Add folder", AddFolder_Click));
-        RemoveButton = Button("Remove", RemoveChecked_Click);
-        addCommands.Children.Add(RemoveButton);
-        ClearButton = Button("Clear", Clear_Click);
-        addCommands.Children.Add(ClearButton);
-        BusyStatus = Label("Working…", 12, _palette.Muted);
-        BusyStatus.Visibility = Visibility.Collapsed;
-        addCommands.Children.Add(BusyStatus);
-        AddAt(toolbar, addCommands, 0);
-        ToolbarCount = Label("0 files added", 12, _palette.Muted);
-        AddAt(toolbar, ToolbarCount, 0, 1);
-        AddAt(page, toolbar, 1);
+        var workspace = new Grid { ColumnSpacing = 16 };
+        SetColumns(workspace, Star(2.7), Star());
+        AddAt(page, workspace, 2);
+        var fileList = new Grid();
+        SetRows(fileList, Auto(), Star());
+        AddAt(workspace, Card(fileList), 0);
+        AddAt(workspace, BuildFileInspector(), 0, 1);
 
-        var workspace = new Grid();
-        SetRows(workspace, Auto(), Auto(), Star(), Auto(), Auto());
-        var options = new StackPanel { Spacing = 12, Padding = new Thickness(18, 12, 18, 14) };
-        var sourceOptions = new Grid { ColumnSpacing = 12 };
-        SetColumns(sourceOptions, Star(2), Star(3), Pixels(100), Auto());
-        SourceCombo = new ComboBox { Header = "Metadata source", HorizontalAlignment = HorizontalAlignment.Stretch };
-        foreach (var source in MetadataSources.All) SourceCombo.Items.Add(new ComboBoxItem { Content = source });
-        SourceCombo.SelectionChanged += SourceCombo_SelectionChanged;
-        AddAt(sourceOptions, SourceCombo, 0);
-        TitleBox = new TextBox { Header = "Title override (all files)", PlaceholderText = "Blank: detect each title" };
-        AddAt(sourceOptions, TitleBox, 0, 1);
-        YearBox = new TextBox { Header = "Year override", PlaceholderText = "Auto" };
-        AddAt(sourceOptions, YearBox, 0, 2);
-        MatchButton = Button("✧  Match files", Match_Click);
-        MatchButton.VerticalAlignment = VerticalAlignment.Bottom;
-        AddAt(sourceOptions, MatchButton, 0, 3);
-        options.Children.Add(sourceOptions);
-        var formatRow = new Grid();
-        SetColumns(formatRow, Star(), Auto());
-        FormatHint = Label("", 12, _palette.Muted);
-        AddAt(formatRow, FormatHint, 0);
-        var editFormat = Button("Edit format", (_, _) => ShowSection("formats"));
-        editFormat.Foreground = _palette.Accent;
-        editFormat.Background = _palette.Surface;
-        editFormat.BorderThickness = new Thickness(0);
-        AddAt(formatRow, editFormat, 0, 1);
-        options.Children.Add(formatRow);
-        var checkRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14 };
-        AbsoluteCheck = new CheckBox { Content = "Absolute episode order" };
-        checkRow.Children.Add(AbsoluteCheck);
-        FilenameOnlyCheck = new CheckBox { Content = "Analyze filenames only" };
-        FilenameOnlyCheck.Checked += FilenameOnlyCheck_Changed;
-        FilenameOnlyCheck.Unchecked += FilenameOnlyCheck_Changed;
-        checkRow.Children.Add(FilenameOnlyCheck);
-        options.Children.Add(checkRow);
-        AddAt(workspace, options, 0);
-
-        var headings = new Grid { Background = _palette.SurfaceAlt,
-            Padding = new Thickness(16, 9, 16, 9), ColumnSpacing = 12 };
-        SetColumns(headings, Pixels(36), Star(2), Star(2), Pixels(140));
-        AddAt(headings, Label("✓", 12, _palette.Muted), 0);
-        AddAt(headings, Label("Original filename", 12, _palette.Muted), 0, 1);
-        AddAt(headings, Label("New filename", 12, _palette.Muted), 0, 2);
-        AddAt(headings, Label("Status", 12, _palette.Muted), 0, 3);
-        AddAt(workspace, new Border { Child = headings, BorderBrush = _palette.Border,
-            BorderThickness = new Thickness(0, 1, 0, 1) }, 1);
+        var legend = new Grid { ColumnSpacing = 8, Padding = new Thickness(16, 8, 16, 8) };
+        SetColumns(legend, Pixels(30), Star());
+        AddAt(legend, new Border
+        {
+            Background = _palette.InputSurface, BorderBrush = _palette.InputLine,
+            BorderThickness = new Thickness(1, 1, 1, 2), CornerRadius = new CornerRadius(2), Height = 15
+        }, 0);
+        AddAt(legend, Label(@"Blue-underlined names are editable. Not allowed in names  \ / : * ? "" < > |", 12, _palette.Muted), 0, 1);
+        AddAt(fileList, new Border { Child = legend, BorderBrush = _palette.Border,
+            BorderThickness = new Thickness(0, 0, 0, 1) }, 0);
 
         var preview = new Grid { Background = _palette.Surface };
         PreviewList = new ListView { SelectionMode = ListViewSelectionMode.None,
             Background = _palette.Surface, BorderThickness = new Thickness(0),
             HorizontalContentAlignment = HorizontalAlignment.Stretch, Visibility = Visibility.Collapsed };
+        var itemStyle = new Style(typeof(ListViewItem));
+        itemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(0)));
+        itemStyle.Setters.Add(new Setter(Control.MinHeightProperty, 0d));
+        itemStyle.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
+        PreviewList.ItemContainerStyle = itemStyle;
         preview.Children.Add(PreviewList);
         EmptyState = new StackPanel { Spacing = 9, HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(20) };
@@ -398,29 +353,14 @@ public sealed partial class MainWindow : Window
         emptyAdd.Margin = new Thickness(0, 6, 0, 0);
         EmptyState.Children.Add(emptyAdd);
         preview.Children.Add(EmptyState);
-        AddAt(workspace, preview, 2);
-
-        ReviewText = Label("", 12);
-        ReviewBanner = new Border { Child = ReviewText, Visibility = Visibility.Collapsed,
-            Background = _palette.WarningSurface, BorderBrush = _palette.Warning,
-            BorderThickness = new Thickness(3, 0, 0, 0),
-            Padding = new Thickness(14, 12, 14, 12) };
-        AddAt(workspace, ReviewBanner, 3);
-        var location = new Grid { Padding = new Thickness(18, 11, 18, 11) };
-        SetColumns(location, Star(), Auto());
-        LocationText = Label("Files stay in their current folder", 12, _palette.Muted);
-        AddAt(location, LocationText, 0);
-        AddAt(location, Label("Existing files are never replaced", 12, _palette.Muted), 0, 1);
-        AddAt(workspace, new Border { Child = location, BorderBrush = _palette.Border,
-            BorderThickness = new Thickness(0, 1, 0, 0) }, 4);
-        AddAt(page, Card(workspace), 2);
+        AddAt(fileList, preview, 1);
 
         var footer = new Grid();
         SetColumns(footer, Star(), Auto());
         var summary = new StackPanel { Spacing = 1 };
         SummaryText = Label("No files added", 13);
         summary.Children.Add(SummaryText);
-        SummaryDetail = Label("Existing files are never replaced.", 12, _palette.Muted);
+        SummaryDetail = Label("", 12, _palette.Muted);
         summary.Children.Add(SummaryDetail);
         AddAt(footer, summary, 0);
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
@@ -433,6 +373,140 @@ public sealed partial class MainWindow : Window
         AddAt(footer, actions, 0, 1);
         AddAt(page, footer, 3);
         return page;
+    }
+
+    private Border BuildRenameToolbar()
+    {
+        var toolbar = new Grid { Padding = new Thickness(12, 10, 12, 10) };
+        SetRows(toolbar, Auto(), Auto(), Auto());
+        SetColumns(toolbar, Star(), Auto());
+        var commands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        commands.Children.Add(AccentButton("＋ Add files", AddFiles_Click));
+        commands.Children.Add(Button("▱ Add folder", AddFolder_Click));
+        commands.Children.Add(new Border { Width = 1, Height = 24, Background = _palette.Border,
+            Margin = new Thickness(4, 0, 4, 0) });
+        commands.Children.Add(Label("Source", 12, _palette.Muted));
+        SourceCombo = new ComboBox { MinWidth = 120, VerticalAlignment = VerticalAlignment.Center };
+        foreach (var source in MetadataSources.All) SourceCombo.Items.Add(new ComboBoxItem { Content = source });
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SourceCombo, "Metadata source");
+        SourceCombo.SelectionChanged += SourceCombo_SelectionChanged;
+        commands.Children.Add(SourceCombo);
+        MatchButton = Button("✧ Match files", Match_Click);
+        commands.Children.Add(MatchButton);
+
+        var options = new Grid { ColumnSpacing = 10, RowSpacing = 8, Margin = new Thickness(0, 8, 0, 0), Visibility = Visibility.Collapsed };
+        SetRows(options, Auto(), Auto());
+        SetColumns(options, Star(), Pixels(105));
+        TitleBox = new TextBox { Header = "Title override (all files)", PlaceholderText = "Detect each title" };
+        YearBox = new TextBox { Header = "Year override", PlaceholderText = "Auto" };
+        AddAt(options, TitleBox, 0);
+        AddAt(options, YearBox, 0, 1);
+        var checks = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14 };
+        AbsoluteCheck = new CheckBox { Content = "Absolute episode order" };
+        FilenameOnlyCheck = new CheckBox { Content = "Analyze filenames only" };
+        FilenameOnlyCheck.Checked += FilenameOnlyCheck_Changed;
+        FilenameOnlyCheck.Unchecked += FilenameOnlyCheck_Changed;
+        checks.Children.Add(AbsoluteCheck);
+        checks.Children.Add(FilenameOnlyCheck);
+        AddAt(options, checks, 1);
+        Grid.SetColumnSpan(checks, 2);
+        var menu = new MenuFlyout();
+        var toggleOptions = new MenuFlyoutItem { Text = "Show matching options" };
+        toggleOptions.Click += (_, _) =>
+        {
+            var show = options.Visibility == Visibility.Collapsed;
+            options.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            toggleOptions.Text = show ? "Hide matching options" : "Show matching options";
+        };
+        RemoveButton = new MenuFlyoutItem { Text = "Remove checked files" };
+        ClearButton = new MenuFlyoutItem { Text = "Clear file list" };
+        RemoveButton.Click += RemoveChecked_Click;
+        ClearButton.Click += Clear_Click;
+        menu.Items.Add(toggleOptions);
+        menu.Items.Add(RemoveButton);
+        menu.Items.Add(ClearButton);
+        commands.Children.Add(new Button { Content = "More options", Flyout = menu, MinHeight = 36,
+            Background = _palette.Surface, Foreground = _palette.InputLine, BorderThickness = new Thickness(0) });
+        var commandScroll = new ScrollViewer
+        {
+            Content = commands,
+            HorizontalScrollMode = ScrollMode.Enabled,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollMode = ScrollMode.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled
+        };
+        AddAt(toolbar, commandScroll, 0);
+        AddAt(toolbar, options, 2);
+        Grid.SetColumnSpan(options, 2);
+
+        var trailing = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Right };
+        BusyStatus = Label("Working…", 12, _palette.Muted);
+        BusyStatus.Visibility = Visibility.Collapsed;
+        ToolbarCount = Label("", 12, _palette.Muted);
+        UndoButton = Button("↶ Undo last rename", Undo_Click);
+        UndoButton.IsEnabled = false;
+        trailing.Children.Add(BusyStatus);
+        trailing.Children.Add(ToolbarCount);
+        trailing.Children.Add(UndoButton);
+        AddAt(toolbar, trailing, 0, 1);
+        toolbar.SizeChanged += (_, e) =>
+        {
+            var compact = e.NewSize.Width < 880;
+            Grid.SetRow(trailing, compact ? 1 : 0);
+            trailing.Margin = new Thickness(0, compact ? 8 : 0, 0, 0);
+            Grid.SetColumnSpan(commandScroll, compact ? 2 : 1);
+        };
+        return Card(toolbar);
+    }
+
+    private Border BuildFileInspector()
+    {
+        var inspector = new Grid { Padding = new Thickness(18), RowSpacing = 12 };
+        SetRows(inspector, Star(), Auto());
+        var details = new StackPanel { Spacing = 12 };
+        details.Children.Add(Label("Selected file", 12, _palette.Muted));
+        SelectedName = Label("Select a file to see its details.", 14, _palette.Text, true);
+        details.Children.Add(SelectedName);
+        SelectedDetails = new StackPanel { Spacing = 12, Visibility = Visibility.Collapsed };
+        TextBlock AddField(string title)
+        {
+            var field = new StackPanel { Spacing = 3 };
+            field.Children.Add(Label(title, 12, _palette.Muted));
+            var value = Label("", 13);
+            field.Children.Add(value);
+            SelectedDetails.Children.Add(field);
+            return value;
+        }
+        DetectedText = AddField("Detected");
+        LocationText = AddField("Folder");
+        MatchedText = AddField("Matched with");
+        var review = new StackPanel { Spacing = 3 };
+        ReviewTitle = Label("", 12, _palette.Text, true);
+        ReviewText = Label("", 12);
+        review.Children.Add(ReviewTitle);
+        review.Children.Add(ReviewText);
+        ReviewBanner = new Border { Child = review, Visibility = Visibility.Collapsed,
+            Background = _palette.WarningSurface, BorderBrush = _palette.Warning,
+            BorderThickness = new Thickness(3, 0, 0, 0), Padding = new Thickness(12, 10, 12, 10) };
+        SelectedDetails.Children.Add(ReviewBanner);
+        ReplaceCharacterButton = Button("", ReplaceCharacter_Click);
+        ReplaceCharacterButton.HorizontalAlignment = HorizontalAlignment.Stretch;
+        ReplaceCharacterButton.Foreground = _palette.InputLine;
+        ReplaceCharacterButton.BorderBrush = _palette.InputLine;
+        ReplaceCharacterButton.Visibility = Visibility.Collapsed;
+        SelectedDetails.Children.Add(ReplaceCharacterButton);
+        details.Children.Add(SelectedDetails);
+        AddAt(inspector, new ScrollViewer { Content = details }, 0);
+
+        var format = new StackPanel { Spacing = 10 };
+        FormatHint = Label("", 12, _palette.Muted);
+        format.Children.Add(FormatHint);
+        var editFormat = Button("Edit format", (_, _) => ShowSection("formats"));
+        editFormat.HorizontalAlignment = HorizontalAlignment.Stretch;
+        format.Children.Add(editFormat);
+        AddAt(inspector, format, 1);
+        return Card(inspector);
     }
 
     private StackPanel PageStack(string title, string subtitle, out StackPanel fields)
@@ -514,65 +588,104 @@ public sealed partial class MainWindow : Window
         return stack;
     }
 
+    private static IEnumerable<IGrouping<(bool IsMovie, string Title, int? Season), PreviewRow>> PreviewGroups(
+        IEnumerable<PreviewRow> rows) => rows.GroupBy(row => row.Item.Kind == MediaKind.Movie
+            ? (true, "MOVIES", (int?)null)
+            : (false, row.DisplayTitle.Trim().ToUpperInvariant(), row.Item.Season))
+            .OrderBy(group => group.Key.Item1);
+
     private void RebuildPreview()
     {
         var remaining = Rows.ToHashSet();
         foreach (var row in _rowViews.Keys.Where(row => !remaining.Contains(row)).ToList()) _rowViews.Remove(row);
+        if (_selectedFile is null || !remaining.Contains(_selectedFile)) _selectedFile = Rows.FirstOrDefault();
+        _groupChecks.Clear();
         PreviewList.Items.Clear();
-        foreach (var row in Rows)
+        foreach (var group in PreviewGroups(Rows))
         {
-            if (!_rowViews.TryGetValue(row, out var view)) _rowViews[row] = view = BuildPreviewRow(row);
-            PreviewList.Items.Add(view);
+            var rows = group.ToArray();
+            var title = group.Key.IsMovie ? "Movies" : rows[0].DisplayTitle.Trim();
+            if (title.Length == 0) title = "Unknown series";
+            var count = FileCount(rows.Length);
+            var subtitle = group.Key.Season is int season ? $"{count} · Season {season}" : count;
+            var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10,
+                Padding = new Thickness(19, 0, 12, 0), MinHeight = 35, Background = _palette.SurfaceAlt };
+            var check = new CheckBox { MinWidth = 0 };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(check, $"Check files in {title}");
+            check.Click += (_, _) =>
+            {
+                foreach (var row in rows) row.IsSelected = check.IsChecked == true;
+                RefreshStatuses();
+            };
+            _groupChecks.Add((check, rows));
+            header.Children.Add(check);
+            header.Children.Add(Label(title, 13, _palette.Text, true));
+            header.Children.Add(Label(subtitle, 12, _palette.Muted));
+            PreviewList.Items.Add(new Border { Child = header, BorderBrush = _palette.Border,
+                BorderThickness = new Thickness(0, 0, 0, 1) });
+            foreach (var row in rows)
+            {
+                if (!_rowViews.TryGetValue(row, out var view)) _rowViews[row] = view = BuildPreviewRow(row);
+                PreviewList.Items.Add(view);
+            }
         }
+        SelectFile(_selectedFile);
     }
 
     private Border BuildPreviewRow(PreviewRow row)
     {
-        var view = new Grid { Padding = new Thickness(16, 5, 16, 5), ColumnSpacing = 12, MinHeight = 56 };
-        SetColumns(view, Pixels(36), Star(2), Star(2), Pixels(140));
+        var view = new Grid { Padding = new Thickness(25, 8, 12, 8), ColumnSpacing = 12, MinHeight = 67 };
+        SetColumns(view, Pixels(24), Star(2.7), Star());
         var container = new Border { Child = view, Background = _palette.Surface,
             BorderBrush = _palette.Border, BorderThickness = new Thickness(0, 0, 0, 1) };
-        var check = new CheckBox { IsChecked = row.IsSelected, Tag = row,
-            VerticalAlignment = VerticalAlignment.Center };
+        container.Tapped += (_, _) => SelectFile(row);
+        container.GotFocus += (_, _) => SelectFile(row);
+        var check = new CheckBox { IsChecked = row.IsSelected, Tag = row, MinWidth = 0,
+            VerticalAlignment = VerticalAlignment.Top };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(check, $"Check {row.OriginalName}");
         check.Checked += RowSelection_Changed;
         check.Unchecked += RowSelection_Changed;
         AddAt(view, check, 0);
-        var originalCell = new Grid { ColumnSpacing = 8 };
-        SetColumns(originalCell, Pixels(18), Star());
-        AddAt(originalCell, Icon("\uE8A5", 14), 0);
-        var original = Label(row.OriginalName, 13, _palette.Muted);
-        original.TextTrimming = TextTrimming.CharacterEllipsis;
-        ToolTipService.SetToolTip(original, row.Item.SourcePath);
-        var originalDetails = new StackPanel { Spacing = 1 };
-        originalDetails.Children.Add(original);
-        var detectedTitle = Label("", 11, _palette.Muted);
-        detectedTitle.TextTrimming = TextTrimming.CharacterEllipsis;
-        void UpdateDetectedTitle() => detectedTitle.Text = row.Item.Kind == MediaKind.Episode
-            ? $"Series: {(string.IsNullOrWhiteSpace(row.DisplayTitle) ? "Not detected" : row.DisplayTitle)}"
-            : $"Movie: {(string.IsNullOrWhiteSpace(row.DisplayTitle) ? "Not detected" : row.DisplayTitle)}";
-        UpdateDetectedTitle();
-        originalDetails.Children.Add(detectedTitle);
-        AddAt(originalCell, originalDetails, 0, 1);
-        AddAt(view, originalCell, 0, 1);
-        var proposed = new TextBox { Text = row.ProposedName, Tag = row,
-            VerticalAlignment = VerticalAlignment.Center };
+
+        var names = new StackPanel { Spacing = 3 };
+        var proposed = new TextBox { Text = row.ProposedName, Tag = row, PlaceholderText = "New filename",
+            Background = _palette.InputSurface, BorderBrush = _palette.InputLine,
+            BorderThickness = new Thickness(1, 1, 1, 2), CornerRadius = new CornerRadius(4) };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(proposed, $"New name for {row.OriginalName}");
         proposed.TextChanged += ProposedName_TextChanged;
-        AddAt(view, proposed, 0, 2);
-        var status = Label(row.Status, 12);
-        AddAt(view, status, 0, 3);
+        names.Children.Add(proposed);
+        var original = Label($"from {row.OriginalName}", 12, _palette.Muted);
+        original.TextTrimming = TextTrimming.CharacterEllipsis;
+        original.TextWrapping = TextWrapping.NoWrap;
+        ToolTipService.SetToolTip(original, row.Item.SourcePath);
+        names.Children.Add(original);
+        AddAt(view, names, 0, 1);
+        var status = Label("", 12);
+        AddAt(view, status, 0, 2);
+
         void UpdateStatus()
         {
             var ready = row.Status == "Ready";
-            var named = row.Status == "Already named";
-            var review = !ready && !named && row.Status != "Excluded" && row.Status != "Match needed";
-            status.Text = ready ? "✓  Ready" : review ? "⚠  " + row.Status : row.Status;
-            status.Foreground = ready ? _palette.Success : review ? _palette.Warning : _palette.Muted;
-            container.Background = review ? _palette.WarningSurface : _palette.Surface;
+            var review = NeedsReview(row);
+            var invalid = UnsupportedCharacter(row) is not null;
+            var title = review ? ReviewLabel(row) : row.Status;
+            status.Text = ready ? "✓ Ready" : review ? $"⚠ {title}" : title;
+            ToolTipService.SetToolTip(status, review ? row.Status : null);
+            status.Foreground = invalid ? _palette.Error : ready ? _palette.Success : review ? _palette.Warning : _palette.Muted;
+            proposed.Background = invalid ? _palette.ErrorSurface : _palette.InputSurface;
+            proposed.BorderBrush = invalid ? _palette.Error : _palette.InputLine;
+            UpdateRowBackground(row, container);
         }
+
         row.PropertyChanged += (_, args) =>
         {
-            if (args.PropertyName == nameof(PreviewRow.OriginalName)) original.Text = row.OriginalName;
-            if (args.PropertyName == nameof(PreviewRow.DisplayTitle)) UpdateDetectedTitle();
+            if (args.PropertyName == nameof(PreviewRow.OriginalName))
+            {
+                original.Text = $"from {row.OriginalName}";
+                ToolTipService.SetToolTip(original, row.Item.SourcePath);
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(check, $"Check {row.OriginalName}");
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(proposed, $"New name for {row.OriginalName}");
+            }
             if (args.PropertyName == nameof(PreviewRow.ProposedName) && proposed.Text != row.ProposedName)
                 proposed.Text = row.ProposedName;
             if (args.PropertyName == nameof(PreviewRow.Status)) UpdateStatus();
@@ -580,6 +693,73 @@ public sealed partial class MainWindow : Window
         };
         UpdateStatus();
         return container;
+    }
+
+    private static string FileCount(int count) => $"{count} {(count == 1 ? "file" : "files")}";
+    private static bool NeedsReview(PreviewRow row) => row.Status is not ("Ready" or "Already named" or "Match needed" or "Excluded");
+
+    private static char? UnsupportedCharacter(PreviewRow row)
+    {
+        var index = row.ProposedName.IndexOfAny(ReservedCharacters);
+        return index >= 0 ? row.ProposedName[index] : null;
+    }
+
+    private static string ReviewLabel(PreviewRow row) => row.Status switch
+    {
+        "A file already exists at this destination." => "File already exists",
+        "Another row has this destination." => "Duplicate destination",
+        _ when UnsupportedCharacter(row) is not null => "Unsupported character",
+        _ => "Filename needs review"
+    };
+
+    private void UpdateRowBackground(PreviewRow row, Border view)
+    {
+        var active = row == _selectedFile;
+        view.Background = active ? _palette.Selection : NeedsReview(row) ? _palette.WarningSurface : _palette.Surface;
+        view.BorderBrush = active && NeedsReview(row) ? _palette.Warning : _palette.Border;
+        view.BorderThickness = new Thickness(active && NeedsReview(row) ? 3 : 0, 0, 0, 1);
+    }
+
+    private void SelectFile(PreviewRow? row)
+    {
+        var previous = _selectedFile;
+        _selectedFile = row;
+        if (previous is not null && _rowViews.TryGetValue(previous, out var oldView))
+            UpdateRowBackground(previous, oldView);
+        if (row is not null && _rowViews.TryGetValue(row, out var view))
+            UpdateRowBackground(row, view);
+        UpdateInspector();
+    }
+
+    private void UpdateInspector()
+    {
+        var row = _selectedFile;
+        FormatHint.Text = $"Format: {(row?.Item.Kind == MediaKind.Movie ? _config.Formats.Movie : _config.Formats.Series)}";
+        SelectedName.Text = row?.OriginalName ?? "Select a file to see its details.";
+        SelectedDetails.Visibility = row is null ? Visibility.Collapsed : Visibility.Visible;
+        if (row is null) return;
+
+        var kind = row.Item.Kind == MediaKind.Movie ? "Movie" : "Series";
+        var year = row.MatchedYear ?? row.Item.Year;
+        var title = string.IsNullOrWhiteSpace(row.DisplayTitle) ? "Unknown title" : row.DisplayTitle;
+        DetectedText.Text = $"{kind}: {title}" + (year is int value ? $" · {value}" : "");
+        LocationText.Text = Path.GetDirectoryName(row.Item.SourcePath) ?? "";
+        MatchedText.Text = row.MatchedSource ?? "Match needed";
+        ReviewBanner.Visibility = NeedsReview(row) ? Visibility.Visible : Visibility.Collapsed;
+        var invalid = UnsupportedCharacter(row);
+        ReviewBanner.BorderBrush = invalid is null ? _palette.Warning : _palette.Error;
+        ReviewTitle.Text = invalid is char character ? $"Unsupported character “{character}”" : ReviewLabel(row);
+        ReviewText.Text = invalid is null ? row.Status :
+            @"Windows filenames can’t contain \ / : * ? "" < > |. Edit the new filename to continue.";
+        ReplaceCharacterButton.Visibility = invalid is null ? Visibility.Collapsed : Visibility.Visible;
+        ReplaceCharacterButton.Content = invalid is char symbol ? $"Replace “{symbol}” with “-”" : "";
+    }
+
+    private void ReplaceCharacter_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedFile is not { } row || UnsupportedCharacter(row) is not char invalid) return;
+        row.ProposedName = row.ProposedName.Replace(invalid, '-');
+        RefreshStatuses();
     }
 
     private void Navigation_Click(object sender, RoutedEventArgs args)
@@ -696,7 +876,10 @@ public sealed partial class MainWindow : Window
             {
                 Rows[i].ProposedName = FormatService.BuildName(items[i], results[i], _config.Formats);
                 Rows[i].DisplayTitle = results[i].Title ?? items[i].Title;
+                Rows[i].MatchedYear = results[i].Year;
+                Rows[i].MatchedSource = source;
             }
+            RebuildPreview();
             RefreshStatuses();
             ShowNotice("Match complete. Review names and status before renaming.", InfoBarSeverity.Success);
         }
@@ -772,26 +955,38 @@ public sealed partial class MainWindow : Window
     }
     private void RowSelection_Changed(object sender, RoutedEventArgs e)
     {
-        if (sender is CheckBox { Tag: PreviewRow row } check) row.IsSelected = check.IsChecked == true;
+        if (sender is not CheckBox { Tag: PreviewRow row } check || row.IsSelected == (check.IsChecked == true))
+            return;
+        row.IsSelected = check.IsChecked == true;
         RefreshStatuses();
     }
 
     private void RefreshStatuses()
     {
-        var selected = Rows.Where(r => r.IsSelected && r.ProposedName.Length > 0).ToList();
-        var entries = selected.Select(r => new RenameEntry(r.Item.SourcePath, r.ProposedName)).ToList();
+        var entries = Rows.Where(row => row.IsSelected && row.ProposedName.Length > 0)
+            .Select(row => new RenameEntry(row.Item.SourcePath, row.ProposedName)).ToList();
         var errors = RenameService.Validate(entries);
-        for (var i = 0; i < Rows.Count; i++)
+        var destinations = entries.Where(entry => !errors.ContainsKey(entry))
+            .Select(entry => Path.GetFullPath(entry.DestinationPath)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in Rows)
         {
-            var row = Rows[i];
-            if (row.ProposedName.Length == 0) row.Status = "Match needed";
-            else if (!row.IsSelected) row.Status = "Excluded";
+            if (row.ProposedName.Length == 0)
+            {
+                row.Status = "Match needed";
+                continue;
+            }
+
+            var entry = new RenameEntry(row.Item.SourcePath, row.ProposedName);
+            string? error;
+            if (row.IsSelected) errors.TryGetValue(entry, out error);
             else
             {
-                var entry = new RenameEntry(row.Item.SourcePath, row.ProposedName);
-                row.Status = errors.TryGetValue(entry, out var error) ? error :
-                    Path.GetFileName(row.Item.SourcePath).Equals(row.ProposedName, StringComparison.Ordinal) ? "Already named" : "Ready";
+                RenameService.Validate([entry]).TryGetValue(entry, out error);
+                if (error is null && destinations.Contains(Path.GetFullPath(entry.DestinationPath)))
+                    error = "Another row has this destination.";
             }
+            row.Status = error ?? (row.OriginalName.Equals(row.ProposedName, StringComparison.Ordinal)
+                ? "Already named" : row.IsSelected ? "Ready" : "Excluded");
         }
         UpdateSummary();
     }
@@ -799,32 +994,25 @@ public sealed partial class MainWindow : Window
     private void UpdateSummary()
     {
         var total = Rows.Count;
-        FormatHint.Text = $"Format: {(Rows.FirstOrDefault()?.Item.Kind == MediaKind.Movie ? _config.Formats.Movie : _config.Formats.Series)}";
         var seriesCount = Rows.Where(row => row.Item.Kind == MediaKind.Episode && !string.IsNullOrWhiteSpace(row.DisplayTitle))
             .Select(row => row.DisplayTitle.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count();
         var ready = Rows.Count(row => row.IsSelected && row.Status == "Ready");
         var selected = Rows.Count(row => row.IsSelected);
-        var review = Rows.Count(row => row.IsSelected && row.Status is not ("Ready" or "Already named" or "Match needed"));
-        ToolbarCount.Text = total == 0 ? "No files added" : seriesCount > 1
-            ? $"{total} files · {seriesCount} series" : $"{total} files added";
-        SummaryText.Text = ready == 0 ? total == 0 ? "No files added" : "No files ready to rename" :
-            $"{ready} {(ready == 1 ? "file" : "files")} ready to rename";
-        SummaryDetail.Text = review > 0 ? $"{review} need review before renaming." :
-            "Existing files are never replaced.";
-        RenameButton.Content = ready > 0 ? $"Rename {ready} {(ready == 1 ? "file" : "files")}" : "Rename checked files";
-        RenameButton.IsEnabled = !_busy && ready > 0;
+        var review = Rows.Count(NeedsReview);
+        ToolbarCount.Text = seriesCount > 0 ? $"{FileCount(total)} · {seriesCount} series" : FileCount(total);
+        SummaryText.Text = total == 0 ? "No files added" : $"{FileCount(ready)} ready to rename";
+        SummaryDetail.Text = review > 0 ? $"{review} need review before renaming." : "";
+        SummaryDetail.Visibility = review > 0 ? Visibility.Visible : Visibility.Collapsed;
+        RenameButton.IsEnabled = !_busy && ready > 0 &&
+            Rows.All(row => !row.IsSelected || row.Status is "Ready" or "Already named");
         MatchButton.IsEnabled = !_busy && total > 0;
         RemoveButton.IsEnabled = !_busy && selected > 0;
         ClearButton.IsEnabled = !_busy && total > 0;
         EmptyState.Visibility = total == 0 ? Visibility.Visible : Visibility.Collapsed;
         PreviewList.Visibility = total == 0 ? Visibility.Collapsed : Visibility.Visible;
-        ReviewBanner.Visibility = review > 0 ? Visibility.Visible : Visibility.Collapsed;
-        ReviewText.Text = review == 1 ? "1 file needs review. Resolve its status before renaming." :
-            $"{review} files need review. Resolve their status before renaming.";
-        var folders = Rows.Select(row => Path.GetDirectoryName(row.Item.SourcePath) ?? "")
-            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        LocationText.Text = folders.Length == 1 ? $"▱  {folders[0]}" :
-            folders.Length > 1 ? $"▱  {folders.Length} source folders" : "Files stay in their current folder";
+        foreach (var (check, rows) in _groupChecks)
+            check.IsChecked = rows.Any(row => row.IsSelected);
+        UpdateInspector();
     }
 
     private void SourceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)

@@ -7,6 +7,8 @@ namespace SimplerFileBot.WinUI;
 public sealed class PreviewRow(MediaItem item) : INotifyPropertyChanged
 {
     public MediaItem Item { get; } = item;
+    internal string? MatchedSource { get; set; }
+    internal int? MatchedYear { get; set; }
     public string OriginalName => Path.GetFileName(Item.SourcePath);
     private string _proposedName = "";
     private string _status = "Match needed";
